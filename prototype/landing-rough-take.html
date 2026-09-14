@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTIPO — I Giardini di Milano · landing (3 varianti)</title>
+<!-- PROTOTIPO THROWAWAY — rough take della landing, ticket wayfinder #6.
+     3 varianti switchabili: ?variant=A|B|C. Contenuto segnaposto. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root { --green:#1a7f37; --red:#c0392b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:#1a1a1a; }
+  .ph { background:repeating-linear-gradient(45deg,#e8e8e8,#e8e8e8 12px,#dedede 12px,#dedede 24px);
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        color:#666; text-align:center; gap:4px; border-radius:6px; overflow:hidden; }
+  .ph b { font-size:14px; letter-spacing:.08em; }
+  .ph small { font-size:11px; color:#888; }
+  .ph.curato b { color:var(--green); } .ph.degrado b { color:var(--red); }
+
+  /* ---------- barra switcher (ovviamente non-prototipo: alto contrasto) ---------- */
+  #switcher { position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+    background:#111; color:#fff; border-radius:999px; padding:8px 14px;
+    display:flex; align-items:center; gap:10px; z-index:9999;
+    box-shadow:0 4px 16px rgba(0,0,0,.35); font-size:13px; user-select:none; }
+  #switcher button { background:#333; color:#fff; border:none; width:28px; height:28px;
+    border-radius:50%; cursor:pointer; font-size:15px; line-height:1; }
+  #switcher button:hover { background:#555; }
+  #switcher .k { background:#ffe14d; color:#111; border-radius:4px; padding:1px 6px; font-weight:700; }
+
+  /* ================= VARIANTA A — narrativa editoriale ================= */
+  .va { background:#fdfbf7; color:#222; line-height:1.6; }
+  .va .wrap { max-width:720px; margin:0 auto; padding:0 24px; }
+  .va header { padding:64px 0 32px; }
+  .va h1 { font-family:Georgia,'Times New Roman',serif; font-size:clamp(40px,7vw,64px);
+    font-weight:400; letter-spacing:-.01em; }
+  .va .claim { font-size:20px; color:#555; margin-top:12px; max-width:32em; }
+  .va .hero { margin:32px 0; aspect-ratio:16/9; }
+  .va section { padding:40px 0; border-top:1px solid #e5e0d8; }
+  .va section h2 { font-family:Georgia,serif; font-weight:400; font-size:28px; margin-bottom:12px; }
+  .va section .ph { margin:16px 0 8px; aspect-ratio:3/2; }
+  .va .cta { text-align:center; padding:72px 0; }
+  .va .cta a { display:inline-block; background:var(--green); color:#fff; text-decoration:none;
+    font-size:17px; padding:14px 28px; border-radius:6px; }
+  .va .cta p { color:#777; margin-top:10px; font-size:14px; }
+  .va .mapmock { aspect-ratio:2/1; margin-top:24px; position:relative; }
+  .va .pin { position:absolute; width:12px; height:12px; border-radius:50%; }
+  .va footer { border-top:1px solid #e5e0d8; padding:24px 0 80px; color:#999; font-size:13px; }
+
+  /* ================= VARIANTA B — statement visivo ================= */
+  .vb { background:#0e0e0e; color:#f2f2f2; }
+  .vb .split { display:grid; grid-template-columns:1fr 1fr; height:88vh; }
+  .vb .half { display:flex; align-items:flex-end; padding:28px; position:relative; }
+  .vb .half .ph { position:absolute; inset:0; border-radius:0; opacity:.9; }
+  .vb .half .tag { position:relative; z-index:2; font-size:13px; font-weight:700;
+    letter-spacing:.2em; text-transform:uppercase; padding:6px 12px; border-radius:4px; }
+  .vb .half.curato .tag { background:var(--green); color:#fff; }
+  .vb .half.degrado .tag { background:var(--red); color:#fff; }
+  .vb .overlay { position:absolute; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; padding:24px;
+    background:linear-gradient(180deg,rgba(14,14,14,.55),rgba(14,14,14,.75)); z-index:3; }
+  .vb h1 { font-size:clamp(36px,6vw,60px); font-weight:800; letter-spacing:-.02em; }
+  .vb .claim { font-size:clamp(16px,2.2vw,20px); margin-top:14px; max-width:34em; color:#ddd; }
+  .vb .scrollhint { position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+    z-index:4; font-size:13px; color:#ccc; background:rgba(255,255,255,.12);
+    padding:8px 16px; border-radius:999px; }
+  .vb #map { height:92vh; }
+  .vb .below { padding:28px; text-align:center; color:#bbb; font-size:14px; }
+  .vb footer { padding:20px 28px 80px; color:#777; font-size:13px; text-align:center; }
+
+  /* ================= VARIANTA C — sintesi, mappa subito ================= */
+  .vc { background:#fff; }
+  .vc .top { max-width:1000px; margin:0 auto; padding:28px 24px 18px; }
+  .vc h1 { font-size:26px; font-weight:800; }
+  .vc .sub { color:#666; font-size:15px; margin-top:4px; }
+  .vc .stats { display:flex; gap:24px; margin-top:14px; font-size:13px; color:#444; flex-wrap:wrap; }
+  .vc .stats b { font-size:18px; }
+  .vc .stats .g b { color:var(--green); } .vc .stats .r b { color:var(--red); }
+  .vc #map { height:70vh; }
+  .vc .strip { display:grid; grid-template-columns:repeat(3,1fr); gap:12px;
+    max-width:1000px; margin:20px auto; padding:0 24px; }
+  .vc .strip .ph { aspect-ratio:4/3; }
+  .vc footer { padding:16px 24px 80px; color:#999; font-size:13px; text-align:center; }
+  .vc .note { font-size:11px; color:#bbb; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="switcher">
+  <button id="prev" aria-label="variante precedente">←</button>
+  <span><span class="k" id="vkey">A</span> <span id="vname"></span></span>
+  <button id="next" aria-label="variante successiva">→</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const ATTR = '© I Giardini di Milano · Foto <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.it" target="_blank" rel="noopener">CC BY-SA 4.0</a>';
+const ph = (label, sub, tone, ratio) =>
+  `<div class="ph ${tone||''}" style="aspect-ratio:${ratio||'3/2'}"><b>${label}</b><small>${sub||'segnaposto — foto reale al caricamento'}</small></div>`;
+let map = null;
+const killMap = () => { if (map) { map.remove(); map = null; } };
+const initMap = (id) => {
+  map = L.map(id).setView([45.4642, 9.19], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  const dot = (lat, lon, cat) => L.circleMarker([lat, lon], {
+    radius: 9, color: '#fff', weight: 2,
+    fillColor: cat === 'curato' ? '#1a7f37' : '#c0392b', fillOpacity: .95
+  }).addTo(map).bindPopup(`<b>Giardino demo (${cat})</b><br>segnaposto prototipo`);
+  dot(45.478, 9.155, 'curato'); dot(45.466, 9.203, 'degrado');
+  dot(45.443, 9.175, 'curato'); dot(45.488, 9.192, 'degrado');
+  dot(45.455, 9.144, 'degrado'); dot(45.438, 9.21, 'curato');
+};
+
+const variants = {
+  A: { name: 'A — Narrativa editoriale', render() { killMap(); return `
+    <div class="va">
+      <div class="wrap">
+        <header>
+          <h1>I Giardini di Milano</h1>
+          <p class="claim">Uno sguardo onesto sul verde della città: i parchi curati e quelli lasciati andare, foto dopo foto.</p>
+        </header>
+        <div class="hero ph">…</div>
+        <section>
+          <h2>Il verde che funziona</h2>
+          <p>Prati curati, alberi potati, panchine intere: quando un giardino viene mantenuto, lo si vede. Documentiamo il lato che funziona, con date e luoghi.</p>
+          ${ph('FOTO — GIARDINO CURATO', 'es. Parco delle Basiliche, aprile', 'curato')}
+        </section>
+        <section>
+          <h2>Il verde che aspetta</h2>
+          <p>Rifiuti accumulati, giochi rotti, aiuole arse: lo stato di abbandono si fotografa da sé. Nessun giudizio estetico — solo ciò che la foto mostra.</p>
+          ${ph('FOTO — SPAZIO IN DEGRADO', 'es. aiuola di via Padova, marzo', 'degrado')}
+        </section>
+        <div class="cta">
+          <a href="#" onclick="return false">Esplora la mappa →</a>
+          <p>Ogni fotografia è geolocalizzata: curati in verde, in degrado in rosso.</p>
+        </div>
+      </div>
+      <footer><div class="wrap">${ATTR}</div></footer>
+    </div>`; } },
+
+  B: { name: 'B — Statement visivo', render() { return `
+    <div class="vb">
+      <div class="split">
+        <div class="half curato">
+          <div class="ph curato" style="position:absolute;inset:0;aspect-ratio:auto;border-radius:0"><b>CURATO</b><small>segnaposto</small></div>
+          <span class="tag">Curato</span>
+        </div>
+        <div class="half degrado">
+          <div class="ph degrado" style="position:absolute;inset:0;aspect-ratio:auto;border-radius:0"><b>IN DEGRADO</b><small>segnaposto</small></div>
+          <span class="tag">In degrado</span>
+        </div>
+        <div class="overlay">
+          <h1>Il verde di Milano<br>ha due volti.</h1>
+          <p class="claim">Lo stesso quartiere può avere un giardino curato e uno abbandonato, a cinque minuti a piedi. Li documentiamo entrambi, foto per foto.</p>
+        </div>
+        <div class="scrollhint">↓ Scorri: la mappa è subito qui sotto</div>
+      </div>
+      <div id="map"></div>
+      <div class="below">Marker verdi: curati · Marker rossi: in degrado — clicca un punto per la foto.</div>
+      <footer>${ATTR}</footer>
+    </div>`; } },
+
+  C: { name: 'C — Sintesi, mappa subito', render() { return `
+    <div class="vc">
+      <div class="top">
+        <h1>I Giardini di Milano</h1>
+        <p class="sub">Lo stato del verde cittadino, foto per foto.</p>
+        <div class="stats">
+          <span class="g"><b>7</b> spazi curati</span>
+          <span class="r"><b>5</b> in degrado</span>
+          <span><b>12</b> foto documentate</span>
+          <span class="note">numeri demo</span>
+        </div>
+      </div>
+      <div id="map"></div>
+      <div class="strip">
+        ${ph('FOTO RECENTE — CURATO', 'segnaposto', 'curato', '4/3')}
+        ${ph('FOTO RECENTE — DEGRADO', 'segnaposto', 'degrado', '4/3')}
+        ${ph('FOTO RECENTE — CURATO', 'segnaposto', 'curato', '4/3')}
+      </div>
+      <footer>${ATTR}</footer>
+    </div>`; } }
+};
+
+const app = document.getElementById('app');
+function show(key) {
+  const v = variants[key] || variants.A;
+  app.innerHTML = v.render();
+  document.getElementById('vkey').textContent = key;
+  document.getElementById('vname').textContent = v.name.split('— ')[1] || v.name;
+  const q = new URLSearchParams(location.search); q.set('variant', key);
+  history.replaceState(null, '', location.pathname + '?' + q.toString());
+  if (key !== 'A') initMap('map');
+  window.scrollTo(0, 0);
+}
+const keys = Object.keys(variants);
+const cur = () => new URLSearchParams(location.search).get('variant') || 'A';
+document.getElementById('prev').onclick = () => show(keys[(keys.indexOf(cur()) - 1 + keys.length) % keys.length]);
+document.getElementById('next').onclick = () => show(keys[(keys.indexOf(cur()) + 1) % keys.length]);
+document.addEventListener('keydown', (e) => {
+  if (['INPUT','TEXTAREA'].includes(e.target.tagName) || e.target.isContentEditable) return;
+  if (e.key === 'ArrowLeft') document.getElementById('prev').click();
+  if (e.key === 'ArrowRight') document.getElementById('next').click();
+});
+show(keys.includes(cur()) ? cur() : 'A');
+</script>
+</body>
+</html>
