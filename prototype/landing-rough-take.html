@@ -99,9 +99,12 @@ const ph = (label, sub, tone, ratio) =>
   `<div class="ph ${tone||''}" style="aspect-ratio:${ratio||'3/2'}"><b>${label}</b><small>${sub||'segnaposto — foto reale al caricamento'}</small></div>`;
 let map = null;
 const killMap = () => { if (map) { map.remove(); map = null; } };
-const initMap = (id) => {
+const initMap = (id, theme) => {
   map = L.map(id).setView([45.4642, 9.19], 12);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  L.tileLayer(`https://{s}.basemaps.cartocdn.com/${theme}/{z}/{x}/{y}{r}.png`, {
+    maxZoom: 19, subdomains: 'abcd',
+    attribution: '© OpenStreetMap contributors © CARTO'
+  }).addTo(map);
   const dot = (lat, lon, cat) => L.circleMarker([lat, lon], {
     radius: 9, color: '#fff', weight: 2,
     fillColor: cat === 'curato' ? '#1a7f37' : '#c0392b', fillOpacity: .95
@@ -190,7 +193,8 @@ function show(key) {
   document.getElementById('vname').textContent = v.name.split('— ')[1] || v.name;
   const q = new URLSearchParams(location.search); q.set('variant', key);
   history.replaceState(null, '', location.pathname + '?' + q.toString());
-  if (key !== 'A') initMap('map');
+  if (key === 'B') initMap('map', 'dark_all');
+  if (key === 'C') initMap('map', 'light_all');
   window.scrollTo(0, 0);
 }
 const keys = Object.keys(variants);
