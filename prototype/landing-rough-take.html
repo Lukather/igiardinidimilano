@@ -61,6 +61,9 @@
     background:linear-gradient(180deg,rgba(14,14,14,.55),rgba(14,14,14,.75)); z-index:3; }
   .vb h1 { font-size:clamp(36px,6vw,60px); font-weight:800; letter-spacing:-.02em; }
   .vb .claim { font-size:clamp(16px,2.2vw,20px); margin-top:14px; max-width:34em; color:#ddd; }
+  .vb .stats { display:flex; gap:28px; margin-top:22px; font-size:14px; color:#ccc; flex-wrap:wrap; justify-content:center; }
+  .vb .stats b { font-size:22px; display:block; color:#fff; }
+  .vb .stats .g b { color:#35a653; } .vb .stats .r b { color:#e05d4f; }
   .vb .scrollhint { position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
     z-index:4; font-size:13px; color:#ccc; background:rgba(255,255,255,.12);
     padding:8px 16px; border-radius:999px; }
@@ -155,6 +158,11 @@ const variants = {
         <div class="overlay">
           <h1>Il verde di Milano<br>ha due volti.</h1>
           <p class="claim">Lo stesso quartiere può avere un giardino curato e uno abbandonato, a cinque minuti a piedi. Li documentiamo entrambi, foto per foto.</p>
+          <div class="stats">
+            <span><b>12</b> foto documentate</span>
+            <span class="g"><b>7</b> spazi curati</span>
+            <span class="r"><b>5</b> in degrado</span>
+          </div>
         </div>
         <div class="scrollhint">↓ Scorri: la mappa è subito qui sotto</div>
       </div>
