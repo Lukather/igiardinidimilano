@@ -35,17 +35,28 @@ npm run test
    - `src/photos/{id}.jpg` - Optimized image (no metadata, ~300KB)
    - `src/data/photos/{id}.json` - Photo metadata
 
-### Building Site Data
+### Publishing the Site
 
 ```bash
 npm run build
 ```
 
-This:
-- Validates all photos in `src/data/photos/`
-- Verifies image files exist
-- Calculates statistics
-- Outputs `src/data/photos.json` for the frontend
+This is the single publication command. It runs two steps in order:
+
+1. **`npm run build:data`** — validates every photo in `src/data/photos/`, verifies the referenced images exist, calculates the statistics and writes `src/data/photos.json`.
+2. **`npm run build:site`** — bundles the frontend with Vite and copies `photos.json` plus every image it references into `dist/`.
+
+`dist/` is then self-contained and deployable as-is on any static host: `index.html`, `assets/`, `data/photos.json`, `photos/`.
+
+**Contract between the two steps:** the site build *depends on* the data build. `build:site` fails with an actionable message if `src/data/photos.json` is missing or if the data references an image that does not exist on disk. Only images referenced by the data are published — unreferenced files in `src/photos/` never reach the output.
+
+Running the steps separately is fine when you only need one of them:
+
+```bash
+npm run build:data   # regenerate src/data/photos.json only
+npm run build:site   # rebuild dist/ from the existing data
+npm run preview      # serve dist/ locally
+```
 
 ### Running Tests
 
@@ -56,11 +67,11 @@ npm run typecheck     # Type check only
 ```
 
 Test files:
-- `src/types/types.test.ts` - Data model validation (28 tests)
-- `src/scripts/ingest.test.ts` - Ingest script (9 tests)
-- `src/scripts/build.test.ts` - Build script (22 tests)
-
-**Total: 59 tests**
+- `src/types/types.test.ts` - Data model validation
+- `src/scripts/ingest.test.ts` - Ingest script
+- `src/scripts/build.test.ts` - Build script
+- `src/scripts/emit-site-assets.test.ts` - Publication of data and images into the build output
+- `src/main.test.ts` - Landing page markup
 
 ## Data Model
 
@@ -98,6 +109,7 @@ src/
 │   ├── ingest.test.ts        # Ingest tests
 │   ├── build.ts              # Site data builder
 │   ├── build.test.ts         # Build tests
+│   ├── emit-site-assets.ts   # Copies data + photos into dist/
 │   └── create-test-photo.ts  # Test helper
 │
 ├── photos/                    # Optimized images (gitignored individually)
@@ -119,11 +131,13 @@ npm run test -- --ui   # Interactive test UI
 
 # Scripts
 npm run ingest         # Start ingest workflow (needs file path argument)
-npm run build          # Build site data from photos
+npm run build          # Publish: build data, then build the site into dist/
+npm run build:data     # Regenerate src/data/photos.json only
+npm run build:site     # Rebuild dist/ from the existing data
 
-# Frontend (not yet implemented)
+# Frontend
 npm run dev            # Development server (Vite)
-npm run preview        # Preview production build
+npm run preview        # Preview the production build in dist/
 ```
 
 ## Error Handling

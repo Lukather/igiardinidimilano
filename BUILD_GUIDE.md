@@ -14,10 +14,13 @@ The build script validates all photos and generates the data file used by the fr
 ## Usage
 
 ```bash
-npm run build
+npm run build:data
 # or
 npx tsx src/scripts/build.ts
 ```
+
+`npm run build` runs this step **and** the site build, producing a deployable
+`dist/`. Use `build:data` when you only need to regenerate `photos.json`.
 
 ## Example Output
 

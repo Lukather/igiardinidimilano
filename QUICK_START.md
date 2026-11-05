@@ -22,9 +22,9 @@ npm run ingest /path/to/photo.jpg
 # Follow prompts for GPS confirmation, category, description, etc.
 # Output: src/photos/{id}.jpg + src/data/photos/{id}.json
 
-# 2. Build aggregated data
+# 2. Publish: build the data, then the site
 npm run build
-# Output: src/data/photos.json
+# Output: src/data/photos.json + dist/ (self-contained, deployable)
 
 # 3. Check dev server
 # The site automatically updates with new photos
@@ -90,8 +90,9 @@ npm test src/main.test.ts # Test landing page only
 
 # Data pipeline
 npm run ingest PHOTO      # Add photo (interactive)
-npm run build             # Generate photos.json
-npm run build:dist        # Compile for production
+npm run build:data        # Generate photos.json only
+npm run build:site        # Build dist/ from existing data
+npm run build             # Both, in order (the publication command)
 
 # Production
 npm run preview           # Preview dist/ locally
@@ -140,11 +141,11 @@ npm run preview           # Preview dist/ locally
 
 ```bash
 # 1. Build for production
-npm run build:dist
+npm run build
 
 # 2. Deploy dist/ to hosting
 # GitHub Pages: push dist/ to gh-pages branch
-# Netlify: connect repo, set build cmd to "npm run build:dist"
+# Netlify: connect repo, set build cmd to "npm run build"
 # Vercel: same as Netlify
 
 # 3. Photos are updated via git

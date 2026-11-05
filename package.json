@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "ingest": "tsx src/scripts/ingest.ts",
-    "build": "tsx src/scripts/build.ts",
+    "build:data": "tsx src/scripts/build.ts",
+    "build:site": "vite build",
+    "build": "npm run build:data && npm run build:site",
     "admin": "node src/admin/admin-server.mjs",
     "admin:dev": "node src/admin/admin-server.mjs",
     "dev": "vite",
