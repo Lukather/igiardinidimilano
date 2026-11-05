@@ -340,6 +340,51 @@ body {
   opacity: 1;
 }
 
+/* Map markers
+ *
+ * The category is carried by three channels: colour, symbol and border style.
+ * Colour alone would be lost in grayscale, in a printed screenshot, or for a
+ * colour-blind visitor, so the disc shape and the glyph must differ too.
+ */
+.marker {
+  background: transparent;
+  border: none;
+}
+
+.marker__disc {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.marker__disc--curato {
+  border: 3px solid var(--color-green);
+  color: var(--color-green);
+}
+
+.marker__disc--degraded {
+  border: 3px dashed var(--color-red);
+  color: var(--color-red);
+}
+
+.marker__symbol {
+  /* Nudge the triangle so it looks centred next to the circle. */
+  display: block;
+  transform: translateY(-1px);
+}
+
+.marker__disc--curato .marker__symbol {
+  transform: translateY(0);
+}
+
 /* Map controls */
 .map-controls {
   position: absolute;

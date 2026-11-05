@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { createPopupElement, formatPhotoDate, formatCoordinates } from './popup';
 import type { Photo } from './types/types';
+import { categoryText } from './category';
 
 function photo(overrides: Partial<Photo> = {}): Photo {
   return {
@@ -28,8 +29,20 @@ describe('Photo popup', () => {
       const curated = createPopupElement(photo({ category: 'curato' }));
       const degraded = createPopupElement(photo({ category: 'in degrado' }));
 
-      expect(curated.querySelector('.photo-popup-category')?.textContent).toContain('Curato');
-      expect(degraded.querySelector('.photo-popup-category')?.textContent).toContain('In degrado');
+      // Same symbol and label as the map marker: the popup confirms which
+      // marker was opened without relying on colour.
+      expect(curated.querySelector('.photo-popup-category')?.textContent).toBe('● Curato');
+      expect(degraded.querySelector('.photo-popup-category')?.textContent).toBe('▲ In degrado');
+    });
+
+    it('uses the same symbol as the marker for each category', () => {
+      for (const category of ['curato', 'in degrado'] as const) {
+        const popup = createPopupElement(photo({ category }));
+
+        expect(popup.querySelector('.photo-popup-category')?.textContent).toBe(
+          categoryText(category),
+        );
+      }
     });
 
     it('shows the photo with an accessible alt text', () => {

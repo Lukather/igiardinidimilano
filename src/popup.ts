@@ -11,17 +11,7 @@
  */
 
 import type { Photo } from './types/types';
-
-/** Category labels, kept in one place so the popup and the filters agree. */
-const CATEGORY_LABEL = {
-  curato: '● Curato',
-  'in degrado': '● In degrado',
-} as const;
-
-const CATEGORY_CLASS = {
-  curato: 'photo-popup-category--curato',
-  'in degrado': 'photo-popup-category--degraded',
-} as const;
+import { CATEGORY_MODIFIER, categoryText } from './category';
 
 /**
  * Format a `YYYY-MM-DD` date for display.
@@ -69,13 +59,15 @@ function element<K extends keyof HTMLElementTagNameMap>(
 export function createPopupElement(photo: Photo): HTMLElement {
   const root = element('div', 'photo-popup');
 
+  // Same symbol as the marker, so the popup confirms which marker was opened
+  // without relying on colour.
   const header = element('div', 'photo-popup-header');
   header.append(
     element('strong', undefined, photo.space),
     element(
       'span',
-      `photo-popup-category ${CATEGORY_CLASS[photo.category]}`,
-      CATEGORY_LABEL[photo.category],
+      `photo-popup-category photo-popup-category--${CATEGORY_MODIFIER[photo.category]}`,
+      categoryText(photo.category),
     ),
   );
 

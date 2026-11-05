@@ -18,6 +18,7 @@ import L from 'leaflet';
 import type { SiteData, Photo } from './types/types';
 import { MAP_TILES } from './map-tiles';
 import { createPopupElement } from './popup';
+import { CATEGORY_MODIFIER, markerIconHtml } from './category';
 
 // ============================================================================
 // CONSTANTS
@@ -26,19 +27,13 @@ import { createPopupElement } from './popup';
 const MILAN_CENTER: [number, number] = [45.4642, 9.1900];
 const MILAN_ZOOM = 12;
 
-// Color scheme
-const COLORS = {
-  curato: '#1a7f37',
-  degraded: '#c0392b',
-};
-
 // ============================================================================
 // STATE
 // ============================================================================
 
 let siteData: SiteData | null = null;
 let map: L.Map | null = null;
-let markers: L.CircleMarker[] = [];
+let markers: L.Marker[] = [];
 let activeFilters = {
   curato: true,
   'in degrado': true,
@@ -155,18 +150,24 @@ function initMap(): L.Map {
 /**
  * Create a circle marker for a photo
  */
-function createMarker(photo: Photo): L.CircleMarker {
+function createMarker(photo: Photo): L.Marker {
   const { coordinates, category } = photo;
-  const color = category === 'curato' ? COLORS.curato : COLORS.degraded;
 
-  // Circle marker with white ring for accessibility
-  const marker = L.circleMarker([coordinates.latitude, coordinates.longitude], {
-    radius: 8,
-    fillColor: color,
-    color: '#fff',
-    weight: 3,
-    opacity: 1,
-    fillOpacity: 0.8,
+  // The marker carries the category through three channels: colour, symbol and
+  // border style. Colour alone would be lost in grayscale or for a colour-blind
+  // visitor (see category.ts).
+  const marker = L.marker([coordinates.latitude, coordinates.longitude], {
+    icon: L.divIcon({
+      className: `marker marker--${CATEGORY_MODIFIER[category]}`,
+      html: markerIconHtml(category),
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+      popupAnchor: [0, -12],
+    }),
+    // `title` is applied to the icon element by Leaflet (unlike `alt`, which
+    // only affects img icons); the category is also spelled out in the popup.
+    title: `${photo.space} — ${category}`,
+    keyboard: true,
   });
 
   // Popup content is built as DOM nodes, so metadata can never be parsed as
@@ -181,8 +182,8 @@ function createMarker(photo: Photo): L.CircleMarker {
 /**
  * Add all markers to map
  */
-function addMarkersToMap(data: SiteData, map: L.Map): L.CircleMarker[] {
-  const markers: L.CircleMarker[] = [];
+function addMarkersToMap(data: SiteData, map: L.Map): L.Marker[] {
+  const markers: L.Marker[] = [];
 
   for (const photo of data.photos) {
     const marker = createMarker(photo);
@@ -196,7 +197,7 @@ function addMarkersToMap(data: SiteData, map: L.Map): L.CircleMarker[] {
 /**
  * Update marker visibility based on filters
  */
-function updateMarkersVisibility(data: SiteData, markers: L.CircleMarker[]): void {
+function updateMarkersVisibility(data: SiteData, markers: L.Marker[]): void {
   if (!map) return;
 
   for (let i = 0; i < data.photos.length; i++) {
