@@ -127,9 +127,22 @@ The build generates `src/data/photos.json`:
     "curatedSpaces": 2,
     "degradedSpaces": 1
   },
-  "lastUpdated": "2024-01-15T14:30:45.123Z"
+  "latestPhotoDate": "2024-01-15"
 }
 ```
+
+### Reproducibility
+
+The file is versioned and must be reproducible: **same input photos, byte-identical
+output**. Two rules make that true:
+
+- **Order**: photos are sorted newest first, ties broken by ID ascending.
+  Directory listing order is filesystem-dependent, so it cannot be trusted. The
+  order is part of the contract — the landing hero picks the first photo of each
+  category, so a stable order means a stable hero.
+- **No clock**: `latestPhotoDate` is the date of the most recent photo, derived
+  from the data. There is no build timestamp, which would dirty the file on every
+  build even when nothing changed.
 
 ## Workflow
 

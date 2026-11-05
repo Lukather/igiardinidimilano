@@ -159,7 +159,8 @@ describe('Landing Page', () => {
       const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'));
       expect(data).toHaveProperty('photos');
       expect(data).toHaveProperty('stats');
-      expect(data).toHaveProperty('lastUpdated');
+      expect(data).toHaveProperty('latestPhotoDate');
+      expect(data).not.toHaveProperty('lastUpdated');
     });
   });
 });

@@ -9,17 +9,22 @@
  * 5. Output src/data/photos.json for the frontend
  * 6. Fail with clear errors if validation fails
  *
+ * The output is reproducible: same input photos, byte-identical file. Photos
+ * are sorted (newest first, ties by ID) and the only date in the file comes
+ * from the data, never from the clock.
+ *
  * Usage:
  *   npx tsx src/scripts/build.ts
  */
 
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { validatePhoto } from '../types/schemas';
 import { calculateStats, validatePhotoDetailed } from '../types/validation';
 import type { Photo, SiteData } from '../types/types';
 
-interface BuildConfig {
+export interface BuildConfig {
   metadataDir: string; // Directory with photo metadata JSON files
   photoDir: string; // Directory with optimized images
   outputFile: string; // Where to write the aggregated data
@@ -107,9 +112,27 @@ function validateSinglePhoto(
 }
 
 /**
- * Build site data from photos
+ * Order photos deterministically: newest first, ties broken by ID ascending.
+ *
+ * Directory listing order is filesystem-dependent, so without this the file
+ * (and the photo the hero picks) would change between machines.
  */
-async function build(config: BuildConfig = DEFAULT_CONFIG) {
+export function sortPhotos(photos: Photo[]): Photo[] {
+  return [...photos].sort((a, b) => {
+    if (a.date !== b.date) {
+      return a.date < b.date ? 1 : -1;
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+}
+
+/**
+ * Build site data from photos.
+ *
+ * Throws when validation fails; the CLI entry point turns that into an exit
+ * code so the function stays callable from tests.
+ */
+export async function build(config: BuildConfig = DEFAULT_CONFIG) {
   console.log('🏗️  Building I Giardini di Milano\n');
 
   // ============================================================================
@@ -165,7 +188,8 @@ async function build(config: BuildConfig = DEFAULT_CONFIG) {
     }
 
     console.error(`${errors.length} photo(s) failed validation.`);
-    process.exit(1);
+
+    throw new Error(`${errors.length} photo(s) failed validation.`);
   }
 
   // ============================================================================
@@ -184,10 +208,14 @@ async function build(config: BuildConfig = DEFAULT_CONFIG) {
   // Step 5: Create site data structure
   // ============================================================================
 
+  // Sorted for reproducibility; the hero picks the first photo of each
+  // category, so this also decides what the landing page shows.
+  const sortedPhotos = sortPhotos(photos);
+
   const siteData: SiteData = {
-    photos,
+    photos: sortedPhotos,
     stats,
-    lastUpdated: new Date().toISOString(),
+    latestPhotoDate: sortedPhotos[0]?.date ?? '',
   };
 
   // ============================================================================
@@ -219,7 +247,7 @@ async function build(config: BuildConfig = DEFAULT_CONFIG) {
   console.log(`   Photos:          ${stats.totalPhotos}`);
   console.log(`   Curated spaces:  ${stats.curatedSpaces}`);
   console.log(`   Degraded spaces: ${stats.degradedSpaces}`);
-  console.log(`   Built:           ${new Date(siteData.lastUpdated).toLocaleString()}`);
+  console.log(`   Latest photo:    ${siteData.latestPhotoDate}`);
   console.log('');
 }
 
@@ -227,7 +255,15 @@ async function build(config: BuildConfig = DEFAULT_CONFIG) {
 // CLI Entry Point
 // ============================================================================
 
-build().catch((error) => {
-  console.error('❌ Build failed:', error);
-  process.exit(1);
-});
+// Only run when executed directly, so tests can import build() without
+// triggering a build (or an exit) on import.
+const isDirectRun =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+
+if (isDirectRun) {
+  build().catch((error) => {
+    console.error('❌ Build failed:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
+}

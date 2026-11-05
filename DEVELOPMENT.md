@@ -48,6 +48,8 @@ This is the single publication command. It runs two steps in order:
 
 `dist/` is then self-contained and deployable as-is on any static host: `index.html`, `assets/`, `data/photos.json`, `photos/`.
 
+`src/data/photos.json` is versioned and **reproducible**: same input photos, byte-identical file. Photos are sorted newest first (ties by ID ascending) and the only date in the file, `latestPhotoDate`, comes from the data — there is no build timestamp, so rebuilding without content changes leaves the working tree clean.
+
 **Contract between the two steps:** the site build *depends on* the data build. `build:site` fails with an actionable message if `src/data/photos.json` is missing or if the data references an image that does not exist on disk. Only images referenced by the data are published — unreferenced files in `src/photos/` never reach the output.
 
 Running the steps separately is fine when you only need one of them:
@@ -94,6 +96,8 @@ Test files:
 - `src/scripts/ingest.test.ts` - Ingest script
 - `src/scripts/build.test.ts` - Build script
 - `src/scripts/emit-site-assets.test.ts` - Publication of data and images into the build output
+- `src/scripts/build-output.test.ts` - Reproducibility, ordering and validation failures of the data build
+- `src/scripts/photo-id.test.ts` - Photo ID allocation
 - `src/main.test.ts` - Landing page markup
 
 ## Data Model

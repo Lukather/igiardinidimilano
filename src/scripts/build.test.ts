@@ -365,7 +365,7 @@ describe('Build Script', () => {
           curatedSpaces: 1,
           degradedSpaces: 0,
         },
-        lastUpdated: new Date().toISOString(),
+        latestPhotoDate: '2024-01-15',
       };
 
       const jsonString = JSON.stringify(siteData, null, 2);
@@ -373,28 +373,34 @@ describe('Build Script', () => {
 
       expect(parsed.photos).toHaveLength(1);
       expect(parsed.stats.totalPhotos).toBe(1);
-      expect(parsed.lastUpdated).toBeDefined();
+      expect(parsed.latestPhotoDate).toBe('2024-01-15');
     });
 
     it('should have correct structure', () => {
       const siteData: SiteData = {
         photos: [],
         stats: { totalPhotos: 0, curatedSpaces: 0, degradedSpaces: 0 },
-        lastUpdated: new Date().toISOString(),
+        latestPhotoDate: '2024-01-15',
       };
 
       expect(siteData).toHaveProperty('photos');
       expect(siteData).toHaveProperty('stats');
-      expect(siteData).toHaveProperty('lastUpdated');
+      expect(siteData).toHaveProperty('latestPhotoDate');
       expect(siteData.photos).toBeInstanceOf(Array);
-      expect(typeof siteData.lastUpdated).toBe('string');
+      expect(typeof siteData.latestPhotoDate).toBe('string');
     });
 
-    it('should format timestamps in ISO format', () => {
-      const now = new Date();
-      const iso = now.toISOString();
+    it('should not carry a build timestamp', () => {
+      // A timestamp from the clock would dirty the versioned file on every
+      // build; the only date in the file comes from the photos.
+      const siteData: SiteData = {
+        photos: [],
+        stats: { totalPhotos: 0, curatedSpaces: 0, degradedSpaces: 0 },
+        latestPhotoDate: '2024-01-15',
+      };
 
-      expect(iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(siteData).not.toHaveProperty('lastUpdated');
+      expect(siteData.latestPhotoDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it('should write to file', () => {
