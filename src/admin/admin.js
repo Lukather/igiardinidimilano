@@ -321,8 +321,14 @@ async function submitPhoto() {
       ? `\nPeso: ${result.sizeKB}KB (budget ${result.targetSizeKB}KB)`
       : `\n⚠️ ${result.sizeKB}KB: non è stato possibile rientrare nel budget di ${result.targetSizeKB}KB senza scendere sotto la qualità minima.`;
 
+    const statsNote = result.stats
+      ? `\nDati del sito aggiornati: ${result.stats.totalPhotos} foto, ${result.stats.curatedSpaces} spazi curati, ${result.stats.degradedSpaces} in degrado.`
+      : '';
+
     showStatus(
-      `✓ Foto caricata! ID: ${result.photoId}${indexNote}${sizeNote}\n\nRicordati di eseguire: npm run build && git add . && git commit`,
+      `✓ Foto caricata! ID: ${result.photoId}${indexNote}${sizeNote}${statsNote}\n\n` +
+        'Per vederla nel sito: npm run build (o npm run build:site se i dati sono già aggiornati).\n' +
+        'Poi: git add . && git commit',
       'success',
     );
 

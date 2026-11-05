@@ -9,15 +9,16 @@ Upload photos directly from a web interface instead of using the CLI.
 npm run admin
 
 # 2. Open in your browser
-#    http://localhost:3000/admin
+#    http://127.0.0.1:3001/admin
 
 # 3. Upload photos using the web form
+#    (the site data is regenerated automatically after each upload)
 
-# 4. After uploading, build the site data
-npm run build
+# 4. Build the site so the photo appears in dist/
+npm run build:site
 
 # 5. Commit and push to publish
-git add src/photos/ src/data/photos.json
+git add src/photos/ src/data/photos/
 git commit -m "Add 3 new photos"
 git push
 ```
@@ -57,8 +58,8 @@ When you click "Carica Foto":
 
 ### 6. Success Message
 After successful upload:
-- Photo ID is displayed
-- You're prompted to run `npm run build` to regenerate the site data
+- Photo ID, index, final size and the updated counters are displayed
+- The aggregated site data (`photos.json`) has already been regenerated
 - Form resets automatically
 
 ## Workflow
@@ -69,17 +70,34 @@ After successful upload:
 Admin Panel (Web UI)
       ↓ (drag-drop photo, fill form, click upload)
       ↓
- Admin Server (Port 3000)
+ Admin Server (127.0.0.1:3001)
       ↓ (process: optimize, strip metadata, save)
       ↓
 src/photos/{id}.jpg + src/data/photos/{id}.json
-      ↓ (you run: npm run build)
+      ↓ (automatic: the server runs the shared data build)
       ↓
 src/data/photos.json (aggregated data for frontend)
       ↓ (you git commit/push)
       ↓
 Production Site (GitHub Pages / Netlify / Vercel)
 ```
+
+### Local only
+
+The panel binds to `127.0.0.1` and has no authentication: it can write into the
+repo, so it must not be reachable from the network. Overriding the bind address
+is possible (`ADMIN_HOST=0.0.0.0 npm run admin`) and prints a warning, but do it
+only on a network you trust.
+
+Uploads are capped at 25MB by default (`ADMIN_MAX_UPLOAD_MB`); anything larger is
+refused with `413` before the body is buffered in memory.
+
+### Same pipeline as the CLI
+
+The panel does not reimplement anything: ID allocation, metadata validation,
+optimization and metadata stripping all come from the same modules the CLI uses.
+A photo that the CLI would reject is rejected here too, with the same message
+naming the field.
 
 ### Key Difference from CLI
 

@@ -1,191 +1,264 @@
 /**
- * I Giardini di Milano - Admin Backend Server
- * 
- * Local Node server that handles photo uploads from the admin panel.
- * Reuses the ingest logic (GPS extraction, image optimization, metadata stripping).
- * 
+ * I Giardini di Milano - Admin server
+ *
+ * Local authoring tool: uploads a photo, writes the same artefacts the CLI
+ * ingest writes, and regenerates the aggregated data. It is not part of the
+ * published site and must never be deployed.
+ *
+ * Everything it does with a photo comes from the shared modules the CLI uses:
+ * ID allocation, metadata validation, optimization and metadata stripping.
+ * There is no second implementation to keep in sync.
+ *
  * Usage:
  *   npm run admin
- * 
- * Then visit: http://localhost:3000/admin
+ *   open http://127.0.0.1:3001/admin
+ *
+ * Environment:
+ *   ADMIN_HOST          bind address (default 127.0.0.1)
+ *   ADMIN_PORT          port (default 3001)
+ *   ADMIN_MAX_UPLOAD_MB maximum upload size in MB (default 25)
+ *   ADMIN_PHOTO_DIR     where images are written
+ *   ADMIN_METADATA_DIR  where photo metadata is written
+ *   ADMIN_DATA_FILE     aggregated data file to regenerate
  */
 
 import http from 'http';
 import path from 'path';
 import fs from 'fs';
-import { URL } from 'url';
-import { fileURLToPath } from 'url';
+import { URL, fileURLToPath } from 'url';
 import busboy from 'busboy';
 import { allocatePhotoId } from '../scripts/photo-id.ts';
 import { optimizeImage } from '../scripts/optimize-image.ts';
 import { IMAGE_BUDGET } from '../scripts/image-budget.ts';
+import { buildPhotoMetadata } from '../scripts/ingest-input.ts';
+import { build } from '../scripts/build.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.join(__dirname, '..', '..');
 
-// Configuration
+const LOOPBACK = new Set(['127.0.0.1', '::1', 'localhost']);
+
 const CONFIG = {
-  photoDir: path.join(ROOT, 'src', 'photos'),
-  metadataDir: path.join(ROOT, 'src', 'data', 'photos'),
-  tempDir: path.join(ROOT, '.admin-temp'),
+  photoDir: process.env.ADMIN_PHOTO_DIR ?? path.join(ROOT, 'src', 'photos'),
+  metadataDir: process.env.ADMIN_METADATA_DIR ?? path.join(ROOT, 'src', 'data', 'photos'),
+  dataFile: process.env.ADMIN_DATA_FILE ?? path.join(ROOT, 'src', 'data', 'photos.json'),
+  host: process.env.ADMIN_HOST ?? '127.0.0.1',
+  port: Number(process.env.ADMIN_PORT ?? 3001),
+  maxUploadBytes: Number(process.env.ADMIN_MAX_UPLOAD_MB ?? 25) * 1024 * 1024,
 };
 
-// Ensure directories exist
-if (!fs.existsSync(CONFIG.photoDir)) {
-  fs.mkdirSync(CONFIG.photoDir, { recursive: true });
-}
-if (!fs.existsSync(CONFIG.metadataDir)) {
-  fs.mkdirSync(CONFIG.metadataDir, { recursive: true });
-}
-if (!fs.existsSync(CONFIG.tempDir)) {
-  fs.mkdirSync(CONFIG.tempDir, { recursive: true });
+// Multipart overhead: boundaries, field names, the other form fields.
+const MULTIPART_SLACK_BYTES = 1024 * 1024;
+
+for (const dir of [CONFIG.photoDir, CONFIG.metadataDir]) {
+  fs.mkdirSync(dir, { recursive: true });
 }
 
 // ============================================================================
 // UPLOAD HANDLER
 // ============================================================================
 
+/** Errors that carry an HTTP status instead of being a plain 400. */
+class UploadError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
 async function handleUpload(req, res) {
   if (req.method !== 'POST') {
-    res.writeHead(405, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    respondJson(res, 405, { error: 'Method not allowed' });
     return;
   }
 
   try {
-    const uploadData = await parseUpload(req);
+    const upload = await parseUpload(req);
 
-    // Validate required fields
-    if (!uploadData.photo) {
-      throw new Error('Photo file is required');
-    }
-    if (!uploadData.latitude || !uploadData.longitude) {
-      throw new Error('Coordinates are required');
-    }
-    if (!uploadData.date) {
-      throw new Error('Date is required');
-    }
-    if (!uploadData.category) {
-      throw new Error('Category is required');
-    }
-    if (!uploadData.space) {
-      throw new Error('Space name is required');
-    }
-    if (!uploadData.description) {
-      throw new Error('Description is required');
+    if (!upload.photo) {
+      throw new UploadError('Photo file is required');
     }
 
-    // Validate values
-    const lat = parseFloat(uploadData.latitude);
-    const lon = parseFloat(uploadData.longitude);
+    const latitude = Number(upload.latitude);
+    const longitude = Number(upload.longitude);
 
-    if (isNaN(lat) || isNaN(lon)) {
-      throw new Error('Invalid coordinates');
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      throw new UploadError('Coordinates are required and must be numbers');
     }
 
-    if (lat < 45.35 || lat > 45.55 || lon < 8.95 || lon > 9.3) {
-      throw new Error('Coordinates are outside Milan bounds');
-    }
-
-    if (!['curato', 'in degrado'].includes(uploadData.category)) {
-      throw new Error('Invalid category');
-    }
-
-    if (uploadData.description.length < 10 || uploadData.description.length > 500) {
-      throw new Error('Description must be 10-500 characters');
-    }
-
-    if (!uploadData.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      throw new Error('Invalid date format');
-    }
-
-    // Allocate the first free photo ID. Publishing never overwrites an
-    // existing photo, even when date and space are identical: the shared
-    // allocator is the same one the CLI ingest uses.
+    // Allocate the first free photo ID: publishing never overwrites an
+    // existing photo, even when date and space are identical.
     const allocation = allocatePhotoId({
-      date: uploadData.date,
-      space: uploadData.space,
+      date: upload.date ?? '',
+      space: upload.space ?? '',
       metadataDir: CONFIG.metadataDir,
       photoDir: CONFIG.photoDir,
     });
-    const photoId = allocation.id;
-    const imageFileName = allocation.imageFile;
-    const imagePath = allocation.imagePath;
-    const metadataPath = allocation.metadataPath;
 
-    // Process image: optimize against the shared budget and strip metadata.
-    // Same implementation as the CLI ingest (see optimize-image.ts).
-    const optimized = await optimizeImage(uploadData.photo, imagePath);
+    // Same validation as the CLI: the shared schema, before anything is
+    // written. An invalid value stops here and names the field.
+    const metadata = buildPhotoMetadata({
+      id: allocation.id,
+      category: upload.category ?? '',
+      coordinates: { latitude, longitude },
+      date: upload.date ?? '',
+      description: upload.description ?? '',
+      space: upload.space ?? '',
+      imageFile: allocation.imageFile,
+    });
 
-    // Write metadata
-    const metadata = {
-      id: photoId,
-      category: uploadData.category,
-      coordinates: { latitude: lat, longitude: lon },
-      date: uploadData.date,
-      description: uploadData.description,
-      space: uploadData.space,
-      imageFile: imageFileName,
-    };
+    const optimized = await optimizeImage(upload.photo, allocation.imagePath);
 
-    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+    fs.writeFileSync(allocation.metadataPath, JSON.stringify(metadata, null, 2));
 
-    // Success response
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(
-      JSON.stringify({
-        success: true,
-        photoId,
-        index: allocation.index,
-        sizeKB: Math.round(optimized.sizeKB),
-        withinBudget: optimized.withinBudget,
-        targetSizeKB: IMAGE_BUDGET.targetSizeKB,
-      }),
-    );
+    // Keep the repo coherent: the aggregated data is regenerated here, so the
+    // photo is immediately part of the site data.
+    const stats = await rebuildData();
+
+    respondJson(res, 200, {
+      success: true,
+      photoId: metadata.id,
+      index: allocation.index,
+      sizeKB: Math.round(optimized.sizeKB),
+      withinBudget: optimized.withinBudget,
+      targetSizeKB: IMAGE_BUDGET.targetSizeKB,
+      stats,
+    });
 
     console.log(
-      `✓ Photo uploaded: ${photoId} (${optimized.sizeKB.toFixed(0)}KB, ` +
+      `✓ Photo uploaded: ${metadata.id} (${optimized.sizeKB.toFixed(0)}KB, ` +
         `quality ${optimized.quality})` +
         (allocation.index > 1 ? ` — index ${allocation.index}: slot 01 already taken` : '') +
         (optimized.withinBudget ? '' : ' — over budget'),
     );
+    console.log(`  ${stats.totalPhotos} photo(s) in the site data`);
   } catch (error) {
-    console.error('Upload error:', error.message);
-    res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: error.message }));
+    const status = error instanceof UploadError ? error.status : 400;
+    console.error(`Upload error (${status}):`, error.message);
+    respondJson(res, status, { error: error.message });
   }
+}
+
+/**
+ * Regenerate the aggregated data with the shared build, quietly.
+ * Returns the new stats so the panel can show them.
+ */
+async function rebuildData() {
+  const { log, warn, error } = console;
+  console.log = () => {};
+  console.warn = () => {};
+  console.error = () => {};
+
+  try {
+    await build({
+      metadataDir: CONFIG.metadataDir,
+      photoDir: CONFIG.photoDir,
+      outputFile: CONFIG.dataFile,
+    });
+  } finally {
+    console.log = log;
+    console.warn = warn;
+    console.error = error;
+  }
+
+  const data = JSON.parse(fs.readFileSync(CONFIG.dataFile, 'utf-8'));
+  return data.stats;
 }
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
+function respondJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(body));
+}
+
+/**
+ * Parse the multipart upload, refusing anything above the size limit before
+ * buffering it.
+ */
 function parseUpload(req) {
   return new Promise((resolve, reject) => {
-    const bb = busboy({ headers: req.headers });
+    // Cheap pre-check: refuse an oversized body without reading it.
+    const declaredLength = Number(req.headers['content-length'] ?? 0);
+    if (declaredLength > CONFIG.maxUploadBytes + MULTIPART_SLACK_BYTES) {
+      reject(
+        new UploadError(
+          `Upload too large: ${(declaredLength / 1024 / 1024).toFixed(1)}MB, ` +
+            `limit ${(CONFIG.maxUploadBytes / 1024 / 1024).toFixed(0)}MB`,
+          413,
+        ),
+      );
+      req.resume();
+      return;
+    }
+
+    const bb = busboy({
+      headers: req.headers,
+      limits: {
+        fileSize: CONFIG.maxUploadBytes,
+        files: 1,
+        fields: 20,
+        parts: 25,
+      },
+    });
+
     const fields = {};
-    let photoBuffer = null;
+    let photo = null;
+    let tooLarge = false;
 
     bb.on('file', (fieldname, file, info) => {
-      if (fieldname === 'photo') {
-        const chunks = [];
-        file.on('data', (chunk) => chunks.push(chunk));
-        file.on('end', () => {
-          photoBuffer = Buffer.concat(chunks);
-        });
+      if (fieldname !== 'photo') {
+        file.resume();
+        return;
       }
+
+      const chunks = [];
+      let size = 0;
+
+      file.on('data', (chunk) => {
+        size += chunk.length;
+        // Keep buffering bounded even if the limit is somehow missed.
+        if (size <= CONFIG.maxUploadBytes) {
+          chunks.push(chunk);
+        }
+      });
+
+      file.on('limit', () => {
+        tooLarge = true;
+      });
+
+      file.on('end', () => {
+        if (!tooLarge) {
+          photo = Buffer.concat(chunks);
+        }
+      });
     });
 
     bb.on('field', (fieldname, value) => {
       fields[fieldname] = value;
     });
 
-    bb.on('close', () => {
-      resolve({ photo: photoBuffer, ...fields });
+    bb.on('error', (error) => {
+      reject(new UploadError(`Could not read the upload: ${error.message}`));
     });
 
-    bb.on('error', reject);
+    bb.on('close', () => {
+      if (tooLarge) {
+        reject(
+          new UploadError(
+            `Upload too large: limit ${(CONFIG.maxUploadBytes / 1024 / 1024).toFixed(0)}MB`,
+            413,
+          ),
+        );
+        return;
+      }
+
+      resolve({ photo, ...fields });
+    });
+
     req.pipe(bb);
   });
 }
@@ -209,7 +282,7 @@ function serveStatic(req, res, filePath) {
 
     res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
     res.end(content);
-  } catch (error) {
+  } catch {
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Not found');
   }
@@ -220,13 +293,11 @@ function serveStatic(req, res, filePath) {
 // ============================================================================
 
 const server = http.createServer((req, res) => {
-  // Use WHATWG URL API instead of deprecated url.parse()
-  const baseUrl = `http://${req.headers.host || 'localhost:3000'}`;
-  const parsedUrl = new URL(req.url || '/', baseUrl);
-  const pathname = parsedUrl.pathname;
+  const baseUrl = `http://${req.headers.host || 'localhost'}`;
+  const pathname = new URL(req.url || '/', baseUrl).pathname;
 
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // The panel is local: no cross-origin access is needed.
+  res.setHeader('Access-Control-Allow-Origin', 'null');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -236,7 +307,6 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Routes (fix paths: /admin.css not /admin/admin.css)
   if (pathname === '/admin' && req.method === 'GET') {
     serveStatic(req, res, path.join(__dirname, 'admin.html'));
   } else if (pathname === '/admin.css' && req.method === 'GET') {
@@ -265,8 +335,18 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const PORT = 3001;
-server.listen(PORT, () => {
-  console.log(`🌱 Admin panel running on http://localhost:${PORT}/admin`);
+server.listen(CONFIG.port, CONFIG.host, () => {
+  const { port } = server.address();
+
+  if (!LOOPBACK.has(CONFIG.host)) {
+    console.warn(
+      `⚠️  Listening on ${CONFIG.host}, not on loopback: the panel has no ` +
+        'authentication and can write into the repo. Use it only on a network you trust.',
+    );
+  }
+
+  console.log(`🌱 Admin panel running on http://${CONFIG.host}:${port}/admin`);
+  console.log(`   Photos:   ${path.relative(ROOT, CONFIG.photoDir) || CONFIG.photoDir}`);
+  console.log(`   Metadata: ${path.relative(ROOT, CONFIG.metadataDir) || CONFIG.metadataDir}`);
   console.log('Press Ctrl+C to stop\n');
 });
