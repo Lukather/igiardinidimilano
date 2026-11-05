@@ -1,6 +1,18 @@
 {
   "photos": [
     {
+      "id": "2026-11-05-biblioteca-degli-alberi-bam-01",
+      "category": "curato",
+      "coordinates": {
+        "latitude": 45.48422326387869,
+        "longitude": 9.194167256355287
+      },
+      "date": "2026-11-05",
+      "description": "Uno scorcio del BAM. Sullo sfondo il palazzo Unicredit e il Bosco Verticale.",
+      "space": "Biblioteca degli Alberi - BAM",
+      "imageFile": "2026-11-05-biblioteca-degli-alberi-bam-01.jpg"
+    },
+    {
       "id": "2026-11-05-melchiorre-gioia-angolo-via-zuccoli-01",
       "category": "in degrado",
       "coordinates": {
@@ -23,36 +35,12 @@
       "description": "Angolo verso non curato e sporco",
       "space": "Piccolo angolo verde Rimembranze di Greco",
       "imageFile": "2026-11-05-piccolo-angolo-verde-rimembranze-di-greco-01.jpg"
-    },
-    {
-      "id": "2024-01-16-parco-vecchio-01",
-      "category": "in degrado",
-      "coordinates": {
-        "latitude": 45.455,
-        "longitude": 9.21
-      },
-      "date": "2024-01-16",
-      "description": "Panchine rotte e rifiuti abbandonati vicino al sentiero principale",
-      "space": "Parco Vecchio",
-      "imageFile": "2024-01-16-parco-vecchio-01.jpg"
-    },
-    {
-      "id": "2024-01-15-parco-sempione-01",
-      "category": "curato",
-      "coordinates": {
-        "latitude": 45.4719,
-        "longitude": 9.1738
-      },
-      "date": "2024-01-15",
-      "description": "Parco ben mantenuto, prato verde e attrezzature funzionanti",
-      "space": "Parco Sempione",
-      "imageFile": "2024-01-15-parco-sempione-01.jpg"
     }
   ],
   "stats": {
-    "totalPhotos": 4,
+    "totalPhotos": 3,
     "curatedSpaces": 1,
-    "degradedSpaces": 3
+    "degradedSpaces": 2
   },
   "latestPhotoDate": "2026-11-05"
 }

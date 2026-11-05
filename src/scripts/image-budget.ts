@@ -44,3 +44,30 @@ export const IMAGE_BUDGET: ImageBudget = {
 export function isWithinBudget(bytes: number, budget: ImageBudget = IMAGE_BUDGET): boolean {
   return bytes / 1024 <= budget.targetSizeKB;
 }
+
+/**
+ * What a published photo must look like at minimum.
+ *
+ * Two placeholder JPEGs (10x10, 269 bytes) sat in the photo directory for
+ * months and were the first thing the landing page showed. A documented photo
+ * of a park is never that small, so the publication refuses anything below
+ * these thresholds instead of trusting that nobody will notice.
+ */
+export const MIN_PUBLISHED_IMAGE = {
+  bytes: 20 * 1024,
+  width: 640,
+  height: 480,
+} as const;
+
+/** True when the image looks like real content rather than a placeholder. */
+export function looksLikeRealPhoto(
+  bytes: number,
+  width: number,
+  height: number,
+): boolean {
+  return (
+    bytes >= MIN_PUBLISHED_IMAGE.bytes &&
+    width >= MIN_PUBLISHED_IMAGE.width &&
+    height >= MIN_PUBLISHED_IMAGE.height
+  );
+}

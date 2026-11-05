@@ -54,11 +54,23 @@ const FIXTURES = [
   },
 ] as const;
 
-/** A JPEG carrying EXIF and an ICC profile, like a camera original. */
+/**
+ * A JPEG carrying EXIF and an ICC profile, like a camera original.
+ *
+ * Textured rather than flat: a solid colour compresses so well that the
+ * published file would be below the placeholder threshold and the gate would
+ * reject it for the wrong reason.
+ */
 async function writeOriginalPhoto(file: string): Promise<void> {
-  await sharp({
-    create: { width: 1200, height: 900, channels: 3, background: { r: 50, g: 110, b: 60 } },
-  })
+  const width = 1200;
+  const height = 900;
+  const pixels = Buffer.alloc(width * height * 3);
+  for (let i = 0; i < pixels.length; i++) {
+    pixels[i] = Math.floor(Math.random() * 256);
+  }
+
+  await sharp(pixels, { raw: { width, height, channels: 3 } })
+    .blur(2)
     .withMetadata({
       exif: {
         IFD0: {
@@ -163,7 +175,7 @@ describe('Publishing the site', () => {
     });
 
     // 3. publish data and images next to the bundle
-    emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR });
+    await emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR });
   }, 120_000);
 
   afterAll(() => {
@@ -227,9 +239,13 @@ describe('Publishing the site', () => {
         );
       }
 
-      expect(() =>
-        emitSiteAssets({ dataFile: DATA_FILE, photoDir: dirtyPhotos, outDir: path.join(dirtyDir, 'dist') }),
-      ).toThrow(/cannot be published[\s\S]*exif/);
+      await expect(
+        emitSiteAssets({
+          dataFile: DATA_FILE,
+          photoDir: dirtyPhotos,
+          outDir: path.join(dirtyDir, 'dist'),
+        }),
+      ).rejects.toThrow(/cannot be published[\s\S]*exif/);
     });
   });
 

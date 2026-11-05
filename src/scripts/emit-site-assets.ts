@@ -14,17 +14,25 @@
  * Only images referenced by the metadata are copied: unreferenced files in the
  * photo directory are never published.
  *
- * This is also the last gate before publishing: an image that still carries
- * EXIF, GPS, XMP or ICC metadata stops the build. The ingest strips metadata
- * with sharp, but nothing else prevents an unstripped JPEG from being dropped
- * into the photo directory by hand — and that would publish the photographer's
- * GPS coordinates.
+ * This is also the last gate before publishing. Two things stop the build:
+ *
+ * - an image that still carries EXIF, GPS, XMP or ICC metadata: the ingest
+ *   strips it with sharp, but nothing else prevents an unstripped JPEG from
+ *   being dropped into the photo directory by hand, and that would publish the
+ *   photographer's GPS coordinates;
+ * - an image too small to be a real photo, i.e. a placeholder left behind.
  */
 
 import fs from 'fs';
 import path from 'path';
 import { findRemainingMetadata } from './image-metadata';
-import { IMAGE_BUDGET, isWithinBudget } from './image-budget';
+import sharp from 'sharp';
+import {
+  IMAGE_BUDGET,
+  MIN_PUBLISHED_IMAGE,
+  isWithinBudget,
+  looksLikeRealPhoto,
+} from './image-budget';
 
 export interface EmitConfig {
   /** Aggregated site data produced by the data build. */
@@ -101,7 +109,7 @@ function readReferencedImages(dataFile: string): { photoCount: number; imageFile
  * Throws with an actionable message when the data is missing or when a
  * referenced image does not exist on disk, so a broken site never ships.
  */
-export function emitSiteAssets(config: EmitConfig): EmitResult {
+export async function emitSiteAssets(config: EmitConfig): Promise<EmitResult> {
   const { photoCount, imageFiles } = readReferencedImages(config.dataFile);
 
   const missing = imageFiles.filter(
@@ -118,14 +126,22 @@ export function emitSiteAssets(config: EmitConfig): EmitResult {
 
   const unreadable: string[] = [];
   const withMetadata: Array<{ imageFile: string; groups: string[] }> = [];
+  const placeholders: Array<{ imageFile: string; bytes: number; width: number; height: number }> =
+    [];
 
   for (const imageFile of imageFiles) {
-    const buffer = fs.readFileSync(path.join(config.photoDir, imageFile));
+    const source = path.join(config.photoDir, imageFile);
+    const buffer = fs.readFileSync(source);
 
     try {
       const groups = findRemainingMetadata(buffer);
       if (groups.length > 0) {
         withMetadata.push({ imageFile, groups });
+      }
+
+      const { width = 0, height = 0 } = await sharp(buffer).metadata();
+      if (!looksLikeRealPhoto(buffer.length, width, height)) {
+        placeholders.push({ imageFile, bytes: buffer.length, width, height });
       }
     } catch {
       // Not a readable image: publishing it would ship a broken file.
@@ -133,15 +149,22 @@ export function emitSiteAssets(config: EmitConfig): EmitResult {
     }
   }
 
-  if (withMetadata.length > 0 || unreadable.length > 0) {
+  if (withMetadata.length > 0 || unreadable.length > 0 || placeholders.length > 0) {
     const lines = [
       ...withMetadata.map(({ imageFile, groups }) => `  - ${imageFile}: ${groups.join(', ')}`),
       ...unreadable.map((imageFile) => `  - ${imageFile}: not a readable image`),
+      ...placeholders.map(
+        ({ imageFile, bytes, width, height }) =>
+          `  - ${imageFile}: ${width}×${height}, ${bytes}B — looks like a placeholder ` +
+          `(minimum ${MIN_PUBLISHED_IMAGE.width}×${MIN_PUBLISHED_IMAGE.height}, ` +
+          `${MIN_PUBLISHED_IMAGE.bytes / 1024}KB)`,
+      ),
     ];
 
     throw new Error(
       `${lines.length} image(s) cannot be published:\n${lines.join('\n')}\n` +
-        'Re-ingest them with "npm run ingest" to strip the metadata.',
+        'Re-ingest them with "npm run ingest" to strip the metadata, ' +
+        'or remove them if they are placeholders.',
     );
   }
 

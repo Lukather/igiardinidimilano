@@ -22,10 +22,10 @@ function siteAssetsPlugin(): Plugin {
     configResolved(config) {
       outDir = path.resolve(config.root, config.build.outDir);
     },
-    closeBundle() {
+    async closeBundle() {
       let result;
       try {
-        result = emitSiteAssets({
+        result = await emitSiteAssets({
           dataFile: DATA_FILE,
           photoDir: PHOTO_DIR,
           outDir,
