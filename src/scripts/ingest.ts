@@ -19,7 +19,15 @@ import path from 'path';
 import sharp from 'sharp';
 import ExifReader from 'exifreader';
 import readline from 'readline';
+import { fileURLToPath } from 'url';
 import { allocatePhotoId } from './photo-id';
+import {
+  buildPhotoMetadata,
+  parseCategoryAnswer,
+  parseCoordinatesAnswer,
+  parseDateAnswer,
+} from './ingest-input';
+import type { PhotoCategory } from '../types/types';
 
 interface ExtractedGPS {
   latitude?: number;
@@ -81,129 +89,144 @@ async function extractGPSFromExif(filePath: string): Promise<ExtractedGPS> {
 }
 
 /**
- * Extract date from photo EXIF data
+ * Read the first value of an EXIF tag.
+ *
+ * ExifReader returns tag values as arrays of strings, not as plain strings.
  */
-function extractDateFromExif(filePath: string): string | null {
+function firstTagValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (Array.isArray(value) && typeof value[0] === 'string') {
+    return value[0];
+  }
+  return null;
+}
+
+/**
+ * Extract the date a photo was taken from its EXIF data.
+ *
+ * `DateTimeOriginal` is when the shutter fired; `DateTime` can be rewritten
+ * by editing software, so it is only a fallback.
+ */
+export function extractDateFromExif(filePath: string): string | null {
   try {
     const buffer = fs.readFileSync(filePath);
     const tags = ExifReader.load(buffer);
 
-    if (tags.DateTime) {
-      const dateTime = tags.DateTime.value as string;
-      // Convert from EXIF format (YYYY:MM:DD HH:MM:SS) to ISO format (YYYY-MM-DD)
-      const [date] = dateTime.split(' ');
-      return date.replace(/:/g, '-');
+    const raw =
+      firstTagValue(tags.DateTimeOriginal?.value) ?? firstTagValue(tags.DateTime?.value);
+
+    if (!raw) {
+      return null;
     }
 
-    return null;
+    // EXIF format is YYYY:MM:DD HH:MM:SS; the site uses YYYY-MM-DD.
+    const [date] = raw.split(' ');
+    const normalized = date.replace(/:/g, '-');
+
+    return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
   } catch (error) {
     console.warn('⚠️  Could not extract date from EXIF:', error);
     return null;
   }
 }
 
+/** Asks a question and resolves with the answer. */
+type Ask = (question: string) => Promise<string>;
+
+/**
+ * Single prompt source for the whole run.
+ *
+ * Opening one readline interface per question loses buffered input when the
+ * previous one closes: the second prompt never receives the answer that was
+ * already piped in.
+ */
+function createPrompter(): { ask: Ask; close: () => void } {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return {
+    ask: (question: string) => new Promise<string>((resolve) => rl.question(question, resolve)),
+    close: () => rl.close(),
+  };
+}
+
 /**
  * Prompt user for coordinate confirmation
  */
 async function confirmCoordinates(
+  ask: Ask,
   proposedLat: number,
   proposedLon: number,
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
+  console.log('\n📍 Proposed coordinates from EXIF:');
+  console.log(`   Latitude:  ${proposedLat.toFixed(6)}`);
+  console.log(`   Longitude: ${proposedLon.toFixed(6)}`);
+  console.log('');
+
+  const answer = await ask('Accept these coordinates? (y/n, or enter corrected lat,lon): ');
+
+  const coordinates = parseCoordinatesAnswer(answer, {
+    latitude: proposedLat,
+    longitude: proposedLon,
   });
 
-  return new Promise((resolve) => {
-    console.log('\n📍 Proposed coordinates from EXIF:');
-    console.log(`   Latitude:  ${proposedLat.toFixed(6)}`);
-    console.log(`   Longitude: ${proposedLon.toFixed(6)}`);
-    console.log('');
+  if (!coordinates) {
+    console.log('❌ Invalid input');
+  }
 
-    rl.question(
-      'Accept these coordinates? (y/n, or enter corrected lat,lon): ',
-      (answer) => {
-        rl.close();
-
-        if (answer.toLowerCase() === 'y' || answer === '') {
-          resolve({ latitude: proposedLat, longitude: proposedLon });
-          return;
-        }
-
-        if (answer.toLowerCase() === 'n') {
-          resolve(null);
-          return;
-        }
-
-        // Try to parse corrected coordinates
-        const parts = answer.split(',');
-        if (parts.length === 2) {
-          const lat = parseFloat(parts[0].trim());
-          const lon = parseFloat(parts[1].trim());
-          if (!isNaN(lat) && !isNaN(lon)) {
-            resolve({ latitude: lat, longitude: lon });
-            return;
-          }
-        }
-
-        console.log('❌ Invalid input');
-        resolve(null);
-      },
-    );
-  });
+  return coordinates;
 }
 
 /**
- * Prompt for photo metadata
+ * Prompt for photo metadata.
+ *
+ * `proposedDate` comes from EXIF: pressing Enter accepts it instead of
+ * retyping the date the camera already recorded.
  */
-async function promptMetadata(): Promise<{
+async function promptMetadata(
+  ask: Ask,
+  proposedDate: string | null,
+): Promise<{
   date: string;
-  category: string;
+  category: PhotoCategory;
   space: string;
   description: string;
 } | null> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  console.log('\n📋 Enter photo metadata:\n');
 
-  const question = (prompt: string): Promise<string> =>
-    new Promise((resolve) => rl.question(prompt, resolve));
-
-  try {
-    console.log('\n📋 Enter photo metadata:\n');
-
-    const date = await question('Date (YYYY-MM-DD): ');
-    if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      console.log('❌ Invalid date format');
-      return null;
-    }
-
-    const category = await question('Category (curato/in degrado): ');
-    if (!['curato', 'in degrado'].includes(category)) {
-      console.log('❌ Invalid category');
-      return null;
-    }
-
-    const space = await question('Space name (e.g., Parco Sempione): ');
-    if (!space.trim()) {
-      console.log('❌ Space name is required');
-      return null;
-    }
-
-    const description = await question('Description: ');
-    if (!description.trim()) {
-      console.log('❌ Description is required');
-      return null;
-    }
-
-    rl.close();
-
-    return { date, category, space: space.trim(), description: description.trim() };
-  } catch (error) {
-    rl.close();
+  const dateAnswer = await ask(
+    proposedDate ? `Date (YYYY-MM-DD) [${proposedDate}]: ` : 'Date (YYYY-MM-DD): ',
+  );
+  const parsedDate = parseDateAnswer(dateAnswer, proposedDate);
+  if (!parsedDate.ok) {
+    console.log(`❌ ${parsedDate.error}`);
     return null;
   }
+  const date = parsedDate.date;
+
+  const category = parseCategoryAnswer(await ask('Category (curato/in degrado): '));
+  if (!category) {
+    console.log('❌ Invalid category');
+    return null;
+  }
+
+  const space = await ask('Space name (e.g., Parco Sempione): ');
+  if (!space.trim()) {
+    console.log('❌ Space name is required');
+    return null;
+  }
+
+  const description = await ask('Description: ');
+  if (!description.trim()) {
+    console.log('❌ Description is required');
+    return null;
+  }
+
+  return { date, category, space: space.trim(), description: description.trim() };
 }
 
 /**
@@ -239,6 +262,44 @@ async function optimizeImage(
 // since sharp drops EXIF/IPTC/XMP by default unless withMetadata() is called.
 
 /**
+ * Metadata groups ExifReader can report. `file` is excluded on purpose: it
+ * holds structural JPEG properties (dimensions, subsampling, file type) that
+ * every image has, and counting those made every clean photo look dirty.
+ */
+const METADATA_GROUPS = [
+  'exif',
+  'gps',
+  'xmp',
+  'iptc',
+  'icc',
+  'photoshop',
+  'thumbnail',
+  'makerNotes',
+  'mpf',
+  'riff',
+  'gif',
+  'png',
+  'pngText',
+] as const;
+
+/**
+ * Names of the metadata groups still present in an image, empty when the
+ * image is clean. Used to verify that publishing stripped everything.
+ */
+export function findRemainingMetadata(buffer: Buffer): string[] {
+  const tags = ExifReader.load(buffer, { expanded: true }) as Record<string, unknown>;
+
+  return METADATA_GROUPS.filter((group) => {
+    const value = tags[group];
+    return (
+      value !== null &&
+      typeof value === 'object' &&
+      Object.keys(value as Record<string, unknown>).length > 0
+    );
+  });
+}
+
+/**
  * Main ingest workflow
  */
 async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_CONFIG) {
@@ -249,8 +310,7 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   // ============================================================================
 
   if (!fs.existsSync(originalPhotoPath)) {
-    console.error(`❌ File not found: ${originalPhotoPath}`);
-    process.exit(1);
+    throw new Error(`File not found: ${originalPhotoPath}`);
   }
 
   const fileName = path.basename(originalPhotoPath);
@@ -273,23 +333,19 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   // Step 3: Confirm coordinates
   // ============================================================================
 
+  // One prompter for the whole run: see createPrompter().
+  const prompter = createPrompter();
+
   let coordinates: { latitude: number; longitude: number } | null = null;
 
   if (gpsData.latitude && gpsData.longitude) {
-    coordinates = await confirmCoordinates(gpsData.latitude, gpsData.longitude);
+    coordinates = await confirmCoordinates(prompter.ask, gpsData.latitude, gpsData.longitude);
   } else {
     console.log('\n📍 No GPS found in EXIF. Enter coordinates manually:');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
 
-    const answer = await new Promise<string>((resolve) => {
-      rl.question('Latitude, Longitude: ', resolve);
-    });
-    rl.close();
-
+    const answer = await prompter.ask('Latitude, Longitude: ');
     const parts = answer.split(',');
+
     if (parts.length === 2) {
       const lat = parseFloat(parts[0].trim());
       const lon = parseFloat(parts[1].trim());
@@ -300,8 +356,8 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   }
 
   if (!coordinates) {
-    console.log('❌ Coordinates not confirmed');
-    process.exit(1);
+    prompter.close();
+    throw new Error('Coordinates not confirmed');
   }
 
   // ============================================================================
@@ -309,31 +365,25 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   // ============================================================================
 
   console.log('\n📅 Extracting date from EXIF...');
-  let date = extractDateFromExif(originalPhotoPath);
+  const exifDate = extractDateFromExif(originalPhotoPath);
 
-  if (date) {
-    console.log(`✅ Date found: ${date}`);
+  if (exifDate) {
+    console.log(`✅ Date found: ${exifDate} (proposed, press Enter to accept)`);
   } else {
     console.log('⚠️  No date found in EXIF');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-
-    date = await new Promise<string>((resolve) => {
-      rl.question('Enter date (YYYY-MM-DD): ', resolve);
-    });
-    rl.close();
   }
 
   // ============================================================================
   // Step 5: Prompt for metadata
   // ============================================================================
 
-  const metadata = await promptMetadata();
+  const metadata = await promptMetadata(prompter.ask, exifDate);
+
+  // Last interactive step: release stdin before the file work.
+  prompter.close();
+
   if (!metadata) {
-    console.log('❌ Metadata entry cancelled');
-    process.exit(1);
+    throw new Error('Metadata entry cancelled');
   }
 
   // ============================================================================
@@ -360,6 +410,18 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
     );
   }
 
+  // Validate against the same schema the build uses *before* touching the
+  // disk: an invalid value must not leave a half-published photo behind.
+  const photoMetadata = buildPhotoMetadata({
+    id: photoId,
+    category: metadata.category,
+    coordinates: coordinates,
+    date: metadata.date,
+    description: metadata.description,
+    space: metadata.space,
+    imageFile: imageFileName,
+  });
+
   // ============================================================================
   // Step 7: Create output directories
   // ============================================================================
@@ -381,8 +443,7 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   const optimizeResult = await optimizeImage(originalPhotoPath, outputImagePath, config);
 
   if (!optimizeResult.success) {
-    console.error(`❌ Failed to optimize image: ${optimizeResult.error}`);
-    process.exit(1);
+    throw new Error(`Failed to optimize image: ${optimizeResult.error}`);
   }
 
   console.log(`✅ Image optimized: ${optimizeResult.size.toFixed(2)}KB (target: ~${config.targetSize}KB)`);
@@ -390,32 +451,23 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   // Verify metadata is stripped
   console.log('\n🔐 Verifying metadata is stripped...');
   const buffer = fs.readFileSync(outputImagePath);
-  try {
-    const tags = ExifReader.load(buffer);
-    const hasMetadata = Object.keys(tags).length > 0;
 
-    if (hasMetadata) {
-      console.log(`⚠️  Warning: Image still contains EXIF tags (${Object.keys(tags).length})`);
-    } else {
-      console.log('✅ No metadata found — photo is clean');
-    }
+  let remaining: string[] = [];
+  try {
+    remaining = findRemainingMetadata(buffer);
   } catch {
+    remaining = [];
+  }
+
+  if (remaining.length > 0) {
+    console.log(`⚠️  Warning: image still contains metadata: ${remaining.join(', ')}`);
+  } else {
     console.log('✅ No metadata found — photo is clean');
   }
 
   // ============================================================================
   // Step 9: Save metadata file
   // ============================================================================
-
-  const photoMetadata = {
-    id: photoId,
-    category: metadata.category,
-    coordinates: coordinates,
-    date: metadata.date,
-    description: metadata.description,
-    space: metadata.space,
-    imageFile: imageFileName,
-  };
 
   const metadataPath = allocation.metadataPath;
   fs.writeFileSync(metadataPath, JSON.stringify(photoMetadata, null, 2));
@@ -444,15 +496,22 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
 // CLI Entry Point
 // ============================================================================
 
-const args = process.argv.slice(2);
+// Only run when executed directly, so tests can import ingest() without
+// starting an interactive session.
+const isDirectRun =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
-if (args.length === 0) {
-  console.error('Usage: npx tsx src/scripts/ingest.ts /path/to/photo.jpg');
-  process.exit(1);
+if (isDirectRun) {
+  const args = process.argv.slice(2);
+
+  if (args.length === 0) {
+    console.error('Usage: npx tsx src/scripts/ingest.ts /path/to/photo.jpg');
+    process.exit(1);
+  }
+
+  ingest(args[0]).catch((error) => {
+    console.error('❌ Ingest failed:', error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
 }
-
-const photoPath = args[0];
-ingest(photoPath).catch((error) => {
-  console.error('❌ Ingest failed:', error);
-  process.exit(1);
-});

@@ -39,11 +39,11 @@ $ npx tsx src/scripts/ingest.ts ~/pictures/parco-sempione-2024.jpg
 Accept these coordinates? (y/n, or enter corrected lat,lon): y
 
 📅 Extracting date from EXIF...
-✅ Date found: 2024-01-15
+✅ Date found: 2024-01-15 (proposed, press Enter to accept)
 
 📋 Enter photo metadata:
 
-Date (YYYY-MM-DD): 2024-01-15
+Date (YYYY-MM-DD) [2024-01-15]:
 Category (curato/in degrado): curato
 Space name (e.g., Parco Sempione): Parco Sempione
 Description: Parco ben curato, aree verdi lussureggianti e attrezzature funzionanti
@@ -87,7 +87,7 @@ The script extracts GPS from EXIF and asks you to confirm:
 
 You'll be asked for:
 
-1. **Date** (YYYY-MM-DD): When the photo was taken
+1. **Date** (YYYY-MM-DD): When the photo was taken. If the photo carries a date in EXIF it is proposed in brackets — press Enter to accept it, or type a date to override it.
 2. **Category**: `curato` (well-maintained) or `in degrado` (degraded)
 3. **Space name**: E.g., "Parco Sempione", "Giardino Pubblico della Martesana"
 4. **Description**: Factual, neutral description of what the photo shows
@@ -96,6 +96,7 @@ You'll be asked for:
 
 The script then:
 
+- Validates the metadata against the same schema the build uses, **before** writing anything: an invalid value stops the ingest with an error naming the field, and no half-published photo is left on disk
 - Generates a unique photo ID: `YYYY-MM-DD-space-name-NN`, using the first free index — publishing never overwrites an existing photo (see "Photo IDs and collisions" in `DEVELOPMENT.md`)
 - Resizes image to max 1600×1600 pixels (preserving aspect ratio)
 - Compresses with 80% JPEG quality (target ~300KB)
