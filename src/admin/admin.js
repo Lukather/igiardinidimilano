@@ -157,9 +157,13 @@ function showExifStatus(message, coords) {
 function initMap() {
   map = L.map(mapContainer).setView(MILAN_CENTER, MILAN_ZOOM);
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  // Same basemap as the public site. tile.openstreetmap.org must never be
+  // requested directly (see src/map-tiles.ts for the policy rationale and
+  // the verified zoom limits); this file is served unbundled, so the config
+  // is mirrored rather than imported.
+  L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    maxZoom: 19,
+    maxZoom: 18,
     minZoom: 10,
   }).addTo(map);
 

@@ -10,15 +10,11 @@
 
 import L from 'leaflet';
 import type { SiteData, Photo } from './types/types';
+import { MAP_TILES } from './map-tiles';
 
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-
-// OpenStreetMap tiles - no API key required, community-funded
-const OSM_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-const OSM_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 const MILAN_CENTER: [number, number] = [45.4642, 9.1900];
 const MILAN_ZOOM = 12;
@@ -121,12 +117,14 @@ function initMap(): L.Map {
     scrollWheelZoom: false,
   }).setView(MILAN_CENTER, MILAN_ZOOM);
 
-  // Add OpenStreetMap tiles (free, no API key required)
-  // Follows the OSM tile usage policy: proper User-Agent, reasonable use
-  L.tileLayer(OSM_URL, {
-    attribution: OSM_ATTRIBUTION,
-    maxZoom: 19,
-    minZoom: 10,
+  // Basemap from a keyless OSM-derived CDN (see map-tiles.ts for the policy
+  // rationale and the verified zoom limits).
+  L.tileLayer(MAP_TILES.url, {
+    attribution: MAP_TILES.attribution,
+    ...(MAP_TILES.subdomains ? { subdomains: MAP_TILES.subdomains } : {}),
+    minZoom: MAP_TILES.minZoom,
+    maxZoom: MAP_TILES.maxZoom,
+    detectRetina: MAP_TILES.detectRetina,
   }).addTo(map);
 
   // Enable scroll-to-zoom only while the cursor is over the map, so page
