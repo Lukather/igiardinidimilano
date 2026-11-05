@@ -312,8 +312,13 @@ async function submitPhoto() {
       throw new Error(result.error || 'Upload failed');
     }
 
+    const indexNote =
+      result.index > 1
+        ? `\n(esisteva già una foto di questo spazio in questa data: assegnato l'indice ${String(result.index).padStart(2, '0')})`
+        : '';
+
     showStatus(
-      `✓ Foto caricata! ID: ${result.photoId}\n\nRicordati di eseguire: npm run build && git add . && git commit`,
+      `✓ Foto caricata! ID: ${result.photoId}${indexNote}\n\nRicordati di eseguire: npm run build && git add . && git commit`,
       'success',
     );
 

@@ -5,7 +5,9 @@ import sharp from 'sharp';
 import ExifReader from 'exifreader';
 import { createTestImage, cleanupTestImages } from '../../tests/fixtures/create-test-images';
 
-const TEST_DIR = path.join(process.cwd(), 'tests', 'temp');
+// Own subdirectory: sharing tests/temp with other suites made their cleanup
+// race against this one.
+const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'ingest');
 const TEST_IMAGE = path.join(TEST_DIR, 'test-image.jpg');
 
 describe('Ingest Script', () => {
@@ -17,14 +19,8 @@ describe('Ingest Script', () => {
   });
 
   afterAll(() => {
-    // Clean up test files
-    if (fs.existsSync(TEST_DIR)) {
-      const files = fs.readdirSync(TEST_DIR);
-      for (const file of files) {
-        fs.unlinkSync(path.join(TEST_DIR, file));
-      }
-      fs.rmdirSync(TEST_DIR);
-    }
+    // Clean up test files, including the nested output directories.
+    fs.rmSync(TEST_DIR, { recursive: true, force: true, maxRetries: 3, retryDelay: 50 });
   });
 
   describe('Image Processing', () => {

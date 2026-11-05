@@ -58,6 +58,29 @@ npm run build:site   # rebuild dist/ from the existing data
 npm run preview      # serve dist/ locally
 ```
 
+### Photo IDs and collisions
+
+A photo ID is `YYYY-MM-DD-space-slug-NN`, where `NN` disambiguates photos that
+share the same date and space.
+
+**Publishing never overwrites an existing photo.** Both the CLI ingest and the
+admin panel allocate the first free index through the same shared allocator
+(`src/scripts/photo-id.ts`):
+
+```
+2024-01-15-parco-sempione-01   ← already published
+2024-01-15-parco-sempione-02   ← what the next publish gets
+```
+
+A slot counts as taken when either the metadata file or the image file exists,
+so a half-written photo also protects its slot. If the base slot is taken, the
+assigned index is reported in the output (CLI) and in the admin panel message.
+Gaps are filled: if `-01` and `-03` exist, the next photo becomes `-02`.
+
+To *replace* a photo, delete its metadata file and image first — there is no
+overwrite path by design. When all indexes `01`–`99` are taken the publish stops
+with an error instead of creating a duplicate.
+
 ### Running Tests
 
 ```bash
@@ -109,6 +132,7 @@ src/
 │   ├── ingest.test.ts        # Ingest tests
 │   ├── build.ts              # Site data builder
 │   ├── build.test.ts         # Build tests
+│   ├── photo-id.ts           # Photo ID allocation (no overwrites)
 │   ├── emit-site-assets.ts   # Copies data + photos into dist/
 │   └── create-test-photo.ts  # Test helper
 │

@@ -96,7 +96,7 @@ You'll be asked for:
 
 The script then:
 
-- Generates a unique photo ID: `YYYY-MM-DD-space-name-index`
+- Generates a unique photo ID: `YYYY-MM-DD-space-name-NN`, using the first free index — publishing never overwrites an existing photo (see "Photo IDs and collisions" in `DEVELOPMENT.md`)
 - Resizes image to max 1600×1600 pixels (preserving aspect ratio)
 - Compresses with 80% JPEG quality (target ~300KB)
 - Strips all EXIF, IPTC, XMP metadata

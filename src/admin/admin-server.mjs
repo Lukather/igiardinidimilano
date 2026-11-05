@@ -17,6 +17,7 @@ import { URL } from 'url';
 import { fileURLToPath } from 'url';
 import busboy from 'busboy';
 import sharp from 'sharp';
+import { allocatePhotoId } from '../scripts/photo-id.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,11 +102,19 @@ async function handleUpload(req, res) {
       throw new Error('Invalid date format');
     }
 
-    // Generate photo ID
-    const photoId = generatePhotoId(uploadData.date, uploadData.space);
-    const imageFileName = `${photoId}.jpg`;
-    const imagePath = path.join(CONFIG.photoDir, imageFileName);
-    const metadataPath = path.join(CONFIG.metadataDir, `${photoId}.json`);
+    // Allocate the first free photo ID. Publishing never overwrites an
+    // existing photo, even when date and space are identical: the shared
+    // allocator is the same one the CLI ingest uses.
+    const allocation = allocatePhotoId({
+      date: uploadData.date,
+      space: uploadData.space,
+      metadataDir: CONFIG.metadataDir,
+      photoDir: CONFIG.photoDir,
+    });
+    const photoId = allocation.id;
+    const imageFileName = allocation.imageFile;
+    const imagePath = allocation.imagePath;
+    const metadataPath = allocation.metadataPath;
 
     // Process image: optimize and strip metadata
     const buffer = await sharp(uploadData.photo)
@@ -135,9 +144,12 @@ async function handleUpload(req, res) {
 
     // Success response
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, photoId }));
+    res.end(JSON.stringify({ success: true, photoId, index: allocation.index }));
 
-    console.log(`✓ Photo uploaded: ${photoId} (${(buffer.length / 1024).toFixed(1)}KB)`);
+    console.log(
+      `✓ Photo uploaded: ${photoId} (${(buffer.length / 1024).toFixed(1)}KB)` +
+        (allocation.index > 1 ? ` — index ${allocation.index}: slot 01 already taken` : ''),
+    );
   } catch (error) {
     console.error('Upload error:', error.message);
     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -176,16 +188,6 @@ function parseUpload(req) {
     bb.on('error', reject);
     req.pipe(bb);
   });
-}
-
-function generatePhotoId(date, space) {
-  const datePart = date.replace(/[^0-9]/g, '-');
-  const spaceSlug = space
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return `${datePart}-${spaceSlug}-01`;
 }
 
 // ============================================================================

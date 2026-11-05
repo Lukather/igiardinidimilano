@@ -46,7 +46,7 @@ git push
 - All fields are required
 - Coordinates must be within Milan bounds (45.35-45.55, 8.95-9.30)
 - Description must be 10-500 characters
-- Photo ID auto-generated: `YYYY-MM-DD-space-slug-01`
+- Photo ID auto-generated: `YYYY-MM-DD-space-slug-NN`, where `NN` is the first free index (see "Photo IDs and collisions" in `DEVELOPMENT.md`). Publishing never overwrites an existing photo: if you upload a second photo with the same date and space, it gets `-02` and the message tells you so.
 
 ### 5. Upload Processing
 When you click "Carica Foto":

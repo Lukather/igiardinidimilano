@@ -19,6 +19,7 @@ import path from 'path';
 import sharp from 'sharp';
 import ExifReader from 'exifreader';
 import readline from 'readline';
+import { allocatePhotoId } from './photo-id';
 
 interface ExtractedGPS {
   latitude?: number;
@@ -238,19 +239,6 @@ async function optimizeImage(
 // since sharp drops EXIF/IPTC/XMP by default unless withMetadata() is called.
 
 /**
- * Generate photo ID from date and space name
- */
-function generatePhotoId(date: string, space: string, index: number = 1): string {
-  const datePart = date.replace(/[^0-9]/g, '-');
-  const spaceSlug = space
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-  return `${datePart}-${spaceSlug}-${index.toString().padStart(2, '0')}`;
-}
-
-/**
  * Main ingest workflow
  */
 async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_CONFIG) {
@@ -352,10 +340,25 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   // Step 6: Generate photo ID
   // ============================================================================
 
-  const photoId = generatePhotoId(metadata.date, metadata.space);
-  const imageFileName = `${photoId}.jpg`;
+  // Allocate the first free slot: publishing never overwrites an existing
+  // photo, even when date and space are identical.
+  const allocation = allocatePhotoId({
+    date: metadata.date,
+    space: metadata.space,
+    metadataDir: config.metadataDir,
+    photoDir: config.photoDir,
+  });
+
+  const photoId = allocation.id;
+  const imageFileName = allocation.imageFile;
 
   console.log(`\n🆔 Photo ID: ${photoId}`);
+  if (allocation.index > 1) {
+    console.log(
+      `   (index ${allocation.index.toString().padStart(2, '0')}: ` +
+        'another photo of this space already exists for this date)',
+    );
+  }
 
   // ============================================================================
   // Step 7: Create output directories
@@ -374,7 +377,7 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
 
   console.log('\n⚙️  Optimizing image and stripping metadata...');
 
-  const outputImagePath = path.join(config.photoDir, imageFileName);
+  const outputImagePath = allocation.imagePath;
   const optimizeResult = await optimizeImage(originalPhotoPath, outputImagePath, config);
 
   if (!optimizeResult.success) {
@@ -414,7 +417,7 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
     imageFile: imageFileName,
   };
 
-  const metadataPath = path.join(config.metadataDir, `${photoId}.json`);
+  const metadataPath = allocation.metadataPath;
   fs.writeFileSync(metadataPath, JSON.stringify(photoMetadata, null, 2));
 
   console.log(`\n✅ Metadata saved: ${path.relative(process.cwd(), metadataPath)}`);
