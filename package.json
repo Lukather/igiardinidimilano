@@ -24,6 +24,7 @@
     "@types/leaflet": "^1.9.8",
     "@types/node": "^20.10.0",
     "exifreader": "^4.11.0",
+    "happy-dom": "^21.0.4",
     "sharp": "^0.33.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0",

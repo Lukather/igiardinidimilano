@@ -11,6 +11,7 @@
 import L from 'leaflet';
 import type { SiteData, Photo } from './types/types';
 import { MAP_TILES } from './map-tiles';
+import { createPopupElement } from './popup';
 
 // ============================================================================
 // CONSTANTS
@@ -162,25 +163,9 @@ function createMarker(photo: Photo): L.CircleMarker {
     fillOpacity: 0.8,
   });
 
-  // Popup content
-  const popupContent = `
-    <div class="photo-popup">
-      <div class="photo-popup-header">
-        <strong>${photo.space}</strong>
-        <span class="photo-popup-category photo-popup-category--${category === 'curato' ? 'curato' : 'degraded'}">
-          ${category === 'curato' ? '● Curato' : '● In degrado'}
-        </span>
-      </div>
-      <img src="./photos/${photo.imageFile}" alt="${photo.description}" style="width: 100%; max-width: 300px; border-radius: 6px; margin: 8px 0;" />
-      <p class="photo-popup-description">${photo.description}</p>
-      <p class="photo-popup-meta">
-        <span class="photo-popup-date">${new Date(photo.date).toLocaleDateString('it-IT')}</span>
-        <span class="photo-popup-coords">${photo.coordinates.latitude.toFixed(4)}, ${photo.coordinates.longitude.toFixed(4)}</span>
-      </p>
-    </div>
-  `;
-
-  marker.bindPopup(popupContent, {
+  // Popup content is built as DOM nodes, so metadata can never be parsed as
+  // markup (see popup.ts).
+  marker.bindPopup(createPopupElement(photo), {
     maxWidth: 350,
   });
 
