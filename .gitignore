@@ -9,3 +9,17 @@ build/
 __pycache__/
 *.log
 .claude/settings.local.json
+
+# Build artifacts
+public/
+.output/
+
+# Test temp files
+tests/temp/
+tests/fixtures/temp/
+
+# Original photos (never in repo)
+/*.jpg
+/*.png
+/*.jpeg
+*.original.*

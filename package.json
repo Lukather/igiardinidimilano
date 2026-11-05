@@ -1,0 +1,35 @@
+{
+  "name": "igiardinidimilano",
+  "version": "1.0.0",
+  "description": "I Giardini di Milano - Foto degli spazi verdi di Milano",
+  "type": "module",
+  "scripts": {
+    "ingest": "tsx src/scripts/ingest.ts",
+    "build": "tsx src/scripts/build.ts",
+    "admin": "node src/admin/admin-server.mjs",
+    "admin:dev": "node src/admin/admin-server.mjs",
+    "dev": "vite",
+    "preview": "vite preview",
+    "test": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@types/busboy": "^1.5.3",
+    "@types/leaflet": "^1.9.8",
+    "@types/node": "^20.10.0",
+    "exifreader": "^4.11.0",
+    "sharp": "^0.33.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0",
+    "vitest": "^1.1.0",
+    "zod": "^3.22.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

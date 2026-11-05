@@ -1,0 +1,364 @@
+/* ============================================================================
+   I Giardini di Milano - Admin Panel Styles
+   ============================================================================ */
+
+:root {
+  --color-green: #1a7f37;
+  --color-green-dark: #0f5823;
+  --color-green-light: #2d9f4a;
+  --color-red: #c0392b;
+  --color-bg: #f5f5f5;
+  --color-card: #ffffff;
+  --color-text: #1a1a1a;
+  --color-text-muted: #666666;
+  --color-border: #e0e0e0;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+#app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.admin-header {
+  text-align: center;
+  margin-bottom: var(--spacing-xl);
+}
+
+.admin-header h1 {
+  font-size: 28px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.subtitle {
+  color: var(--color-text-muted);
+  font-size: 15px;
+}
+
+/* ============================================================================
+   CARDS
+   ============================================================================ */
+
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.card h2 {
+  font-size: 18px;
+  margin-bottom: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.help {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  margin-bottom: var(--spacing-md);
+}
+
+/* ============================================================================
+   DROPZONE
+   ============================================================================ */
+
+.dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  padding: var(--spacing-xl);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms;
+  color: var(--color-text-muted);
+}
+
+.dropzone:hover,
+.dropzone.dragover {
+  border-color: var(--color-green);
+  background: rgba(26, 127, 55, 0.04);
+}
+
+.dropzone svg {
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.5;
+}
+
+.dropzone p {
+  margin: var(--spacing-sm) 0;
+  color: var(--color-text);
+}
+
+.dropzone .hint {
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.file-preview {
+  margin-top: var(--spacing-md);
+  text-align: center;
+}
+
+.file-preview img {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+  margin-bottom: var(--spacing-sm);
+}
+
+.file-preview p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+}
+
+.exif-data {
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--color-bg);
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.exif-data p {
+  margin-bottom: 4px;
+}
+
+/* ============================================================================
+   MAP
+   ============================================================================ */
+
+.admin-map {
+  height: 350px;
+  border-radius: 8px;
+  margin-bottom: var(--spacing-md);
+  border: 1px solid var(--color-border);
+}
+
+.coords-input {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.coords-input label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  flex: 1;
+  min-width: 140px;
+}
+
+.coords-input input {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* ============================================================================
+   FORM
+   ============================================================================ */
+
+.form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.form-group textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--color-green);
+}
+
+.char-count {
+  display: block;
+  text-align: right;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.char-count.invalid {
+  color: var(--color-red);
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.btn-primary,
+.btn-secondary,
+.btn-small {
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: opacity 150ms, background 150ms;
+}
+
+.btn-primary {
+  background: var(--color-green);
+  color: #fff;
+  padding: 12px 24px;
+  width: 100%;
+  margin-bottom: var(--spacing-sm);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-green-dark);
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 10px 20px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg);
+}
+
+.btn-small {
+  background: var(--color-bg);
+  color: var(--color-text);
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+}
+
+.btn-small:hover {
+  background: #eee;
+}
+
+/* ============================================================================
+   STATUS MESSAGE
+   ============================================================================ */
+
+.status {
+  padding: var(--spacing-md);
+  border-radius: 8px;
+  margin-bottom: var(--spacing-lg);
+  font-size: 14px;
+}
+
+.status.success {
+  background: #e6f4ea;
+  color: var(--color-green-dark);
+  border: 1px solid var(--color-green-light);
+}
+
+.status.error {
+  background: #fdecea;
+  color: var(--color-red);
+  border: 1px solid #f5c6c0;
+}
+
+.status.loading {
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+}
+
+/* ============================================================================
+   UTILITY
+   ============================================================================ */
+
+.hidden {
+  display: none !important;
+}
+
+/* ============================================================================
+   FOOTER
+   ============================================================================ */
+
+.admin-footer {
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  padding: var(--spacing-lg) 0;
+}
+
+.admin-footer code {
+  background: var(--color-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 600px) {
+  #app {
+    padding: var(--spacing-md);
+  }
+
+  .admin-map {
+    height: 280px;
+  }
+
+  .coords-input {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

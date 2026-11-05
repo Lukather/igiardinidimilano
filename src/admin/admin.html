@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>I Giardini di Milano · Admin</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Admin styles -->
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="admin-header">
+      <h1>🌱 I Giardini di Milano — Admin</h1>
+      <p class="subtitle">Carica foto degli spazi verdi di Milano</p>
+    </header>
+
+    <main class="admin-main">
+      <section class="upload-section">
+        <div class="card">
+          <h2>1. Seleziona Foto</h2>
+          
+          <div class="dropzone" id="dropzone">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <p><strong>Trascina una foto qui</strong> o clicca per selezionare</p>
+            <input type="file" id="file-input" accept="image/jpeg,image/jpg,image/png" hidden />
+            <span class="hint">JPG o PNG con dati GPS EXIF</span>
+          </div>
+
+          <div id="file-preview" class="file-preview hidden">
+            <img id="preview-img" alt="Preview" />
+            <p id="preview-name"></p>
+            <button id="clear-file" class="btn-small">Cambia foto</button>
+          </div>
+
+          <div id="exif-data" class="exif-data hidden">
+            <p><strong>📅 Data:</strong> <span id="exif-date">—</span></p>
+            <p><strong>📍 GPS:</strong> <span id="exif-gps">—</span></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="coords-section">
+        <div class="card">
+          <h2>2. Conferma Coordinate</h2>
+          <p class="help">Clicca sulla mappa per confermare o regolare il pin GPS</p>
+          <div id="map" class="admin-map"></div>
+          <div class="coords-input">
+            <label>
+              Latitude:
+              <input type="number" id="lat-input" step="0.000001" placeholder="45.4642" />
+            </label>
+            <label>
+              Longitude:
+              <input type="number" id="lon-input" step="0.000001" placeholder="9.1900" />
+            </label>
+            <button id="update-coords" class="btn-small">Aggiorna Mappa</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="metadata-section">
+        <div class="card">
+          <h2>3. Metadati Foto</h2>
+          
+          <div class="form-group">
+            <label for="date-input">📅 Data (YYYY-MM-DD)</label>
+            <input type="date" id="date-input" required />
+          </div>
+
+          <div class="form-group">
+            <label for="category-input">🏷️ Categoria</label>
+            <select id="category-input" required>
+              <option value="">— Seleziona —</option>
+              <option value="curato">✓ Curato (ben mantenuto)</option>
+              <option value="in degrado">✗ In degrado (non curato)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="space-input">📍 Nome Spazio Verde</label>
+            <input type="text" id="space-input" placeholder="Es: Parco Sempione" required />
+          </div>
+
+          <div class="form-group">
+            <label for="description-input">📝 Descrizione (10-500 caratteri)</label>
+            <textarea id="description-input" placeholder="Descrivi cosa vedi nella foto..." required></textarea>
+            <span id="desc-count" class="char-count">0/500</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="action-section">
+        <div class="card">
+          <button id="submit-btn" class="btn-primary" disabled>Carica Foto</button>
+          <button id="reset-btn" class="btn-secondary">Cancella Modulo</button>
+        </div>
+      </section>
+
+      <div id="status" class="status hidden"></div>
+    </main>
+
+    <footer class="admin-footer">
+      <p>💡 Consiglio: ogni foto caricata qui viene aggiunta a <code>src/photos/</code> e <code>src/data/photos/</code>. Ricordati di eseguire <code>npm run build</code> e fare il commit.</p>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Admin app -->
+  <script src="/admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>I Giardini di Milano · Foto degli spazi verdi</title>
+  <meta name="description" content="Foto geolocalizzate degli spazi verdi di Milano, curati e in degrado. Scopri il contrasto sullo stato del verde della città." />
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Main styles -->
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+  <!-- App container -->
+  <div id="app">
+    <!-- Hero section: split screen -->
+    <section class="hero" id="hero">
+      <div class="hero-split">
+        <div class="hero-half hero-half--curato">
+          <img id="hero-curato-img" class="hero-image" alt="Spazio verde curato" src="" />
+          <div class="hero-overlay"></div>
+          <span class="hero-tag">CURATO</span>
+        </div>
+        <div class="hero-half hero-half--degraded">
+          <img id="hero-degraded-img" class="hero-image" alt="Spazio verde in degrado" src="" />
+          <div class="hero-overlay"></div>
+          <span class="hero-tag">IN DEGRADO</span>
+        </div>
+      </div>
+
+      <div class="hero-content">
+        <h1 class="hero-title">I Giardini di Milano</h1>
+        <p class="hero-claim">Uno spazio pubblico curato è una risorsa. Uno in degrado è una disfunzione. La differenza è visibile, ma spesso ignorata.</p>
+        <div class="hero-stats">
+          <div class="stat stat--total">
+            <span class="stat-number" id="stat-total">0</span>
+            <span class="stat-label">foto documentate</span>
+          </div>
+          <div class="stat stat--curato">
+            <span class="stat-number" id="stat-curato">0</span>
+            <span class="stat-label">spazi curati</span>
+          </div>
+          <div class="stat stat--degraded">
+            <span class="stat-number" id="stat-degraded">0</span>
+            <span class="stat-label">spazi in degrado</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-scroll-hint">
+        <span>Scorri per esplorare</span>
+        <svg class="scroll-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M12 19l-3-3M12 19l3-3" />
+        </svg>
+      </div>
+    </section>
+
+    <!-- Map section -->
+    <section class="map-section">
+      <div id="map" class="map"></div>
+      
+      <!-- Map controls -->
+      <div class="map-controls">
+        <div class="filter-group">
+          <label class="filter-label">
+            <input type="checkbox" class="filter-checkbox" value="curato" checked />
+            <span class="filter-text curato">● Curato</span>
+          </label>
+          <label class="filter-label">
+            <input type="checkbox" class="filter-checkbox" value="in degrado" checked />
+            <span class="filter-text degraded">● In degrado</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-content">
+        <div class="footer-attribution">
+          © I Giardini di Milano · Foto <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.it" target="_blank" rel="noopener">CC BY-SA 4.0</a>
+        </div>
+        <div class="footer-purpose">
+          Un sito documentaristico sullo stato dei spazi verdi pubblici di Milano, per alimentare la consapevolezza e l'opinione pubblica.
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Main app script -->
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

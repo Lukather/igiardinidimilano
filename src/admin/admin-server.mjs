@@ -1,0 +1,254 @@
+/**
+ * I Giardini di Milano - Admin Backend Server
+ * 
+ * Local Node server that handles photo uploads from the admin panel.
+ * Reuses the ingest logic (GPS extraction, image optimization, metadata stripping).
+ * 
+ * Usage:
+ *   npm run admin
+ * 
+ * Then visit: http://localhost:3000/admin
+ */
+
+import http from 'http';
+import path from 'path';
+import fs from 'fs';
+import { URL } from 'url';
+import { fileURLToPath } from 'url';
+import busboy from 'busboy';
+import sharp from 'sharp';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ROOT = path.join(__dirname, '..', '..');
+
+// Configuration
+const CONFIG = {
+  photoDir: path.join(ROOT, 'src', 'photos'),
+  metadataDir: path.join(ROOT, 'src', 'data', 'photos'),
+  tempDir: path.join(ROOT, '.admin-temp'),
+  maxWidth: 1600,
+  maxHeight: 1600,
+  quality: 80,
+};
+
+// Ensure directories exist
+if (!fs.existsSync(CONFIG.photoDir)) {
+  fs.mkdirSync(CONFIG.photoDir, { recursive: true });
+}
+if (!fs.existsSync(CONFIG.metadataDir)) {
+  fs.mkdirSync(CONFIG.metadataDir, { recursive: true });
+}
+if (!fs.existsSync(CONFIG.tempDir)) {
+  fs.mkdirSync(CONFIG.tempDir, { recursive: true });
+}
+
+// ============================================================================
+// UPLOAD HANDLER
+// ============================================================================
+
+async function handleUpload(req, res) {
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  try {
+    const uploadData = await parseUpload(req);
+
+    // Validate required fields
+    if (!uploadData.photo) {
+      throw new Error('Photo file is required');
+    }
+    if (!uploadData.latitude || !uploadData.longitude) {
+      throw new Error('Coordinates are required');
+    }
+    if (!uploadData.date) {
+      throw new Error('Date is required');
+    }
+    if (!uploadData.category) {
+      throw new Error('Category is required');
+    }
+    if (!uploadData.space) {
+      throw new Error('Space name is required');
+    }
+    if (!uploadData.description) {
+      throw new Error('Description is required');
+    }
+
+    // Validate values
+    const lat = parseFloat(uploadData.latitude);
+    const lon = parseFloat(uploadData.longitude);
+
+    if (isNaN(lat) || isNaN(lon)) {
+      throw new Error('Invalid coordinates');
+    }
+
+    if (lat < 45.35 || lat > 45.55 || lon < 8.95 || lon > 9.3) {
+      throw new Error('Coordinates are outside Milan bounds');
+    }
+
+    if (!['curato', 'in degrado'].includes(uploadData.category)) {
+      throw new Error('Invalid category');
+    }
+
+    if (uploadData.description.length < 10 || uploadData.description.length > 500) {
+      throw new Error('Description must be 10-500 characters');
+    }
+
+    if (!uploadData.date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      throw new Error('Invalid date format');
+    }
+
+    // Generate photo ID
+    const photoId = generatePhotoId(uploadData.date, uploadData.space);
+    const imageFileName = `${photoId}.jpg`;
+    const imagePath = path.join(CONFIG.photoDir, imageFileName);
+    const metadataPath = path.join(CONFIG.metadataDir, `${photoId}.json`);
+
+    // Process image: optimize and strip metadata
+    const buffer = await sharp(uploadData.photo)
+      .rotate() // Auto-rotate based on EXIF
+      .resize(CONFIG.maxWidth, CONFIG.maxHeight, {
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+      .jpeg({ quality: CONFIG.quality, progressive: true })
+      .toBuffer();
+
+    // Write optimized image
+    fs.writeFileSync(imagePath, buffer);
+
+    // Write metadata
+    const metadata = {
+      id: photoId,
+      category: uploadData.category,
+      coordinates: { latitude: lat, longitude: lon },
+      date: uploadData.date,
+      description: uploadData.description,
+      space: uploadData.space,
+      imageFile: imageFileName,
+    };
+
+    fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+
+    // Success response
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, photoId }));
+
+    console.log(`✓ Photo uploaded: ${photoId} (${(buffer.length / 1024).toFixed(1)}KB)`);
+  } catch (error) {
+    console.error('Upload error:', error.message);
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: error.message }));
+  }
+}
+
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+function parseUpload(req) {
+  return new Promise((resolve, reject) => {
+    const bb = busboy({ headers: req.headers });
+    const fields = {};
+    let photoBuffer = null;
+
+    bb.on('file', (fieldname, file, info) => {
+      if (fieldname === 'photo') {
+        const chunks = [];
+        file.on('data', (chunk) => chunks.push(chunk));
+        file.on('end', () => {
+          photoBuffer = Buffer.concat(chunks);
+        });
+      }
+    });
+
+    bb.on('field', (fieldname, value) => {
+      fields[fieldname] = value;
+    });
+
+    bb.on('close', () => {
+      resolve({ photo: photoBuffer, ...fields });
+    });
+
+    bb.on('error', reject);
+    req.pipe(bb);
+  });
+}
+
+function generatePhotoId(date, space) {
+  const datePart = date.replace(/[^0-9]/g, '-');
+  const spaceSlug = space
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return `${datePart}-${spaceSlug}-01`;
+}
+
+// ============================================================================
+// STATIC FILE SERVING
+// ============================================================================
+
+function serveStatic(req, res, filePath) {
+  try {
+    const content = fs.readFileSync(filePath);
+    const ext = path.extname(filePath);
+    const mimeTypes = {
+      '.html': 'text/html; charset=utf-8',
+      '.css': 'text/css; charset=utf-8',
+      '.js': 'text/javascript; charset=utf-8',
+      '.json': 'application/json',
+    };
+
+    res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
+    res.end(content);
+  } catch (error) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not found');
+  }
+}
+
+// ============================================================================
+// SERVER
+// ============================================================================
+
+const server = http.createServer((req, res) => {
+  // Use WHATWG URL API instead of deprecated url.parse()
+  const baseUrl = `http://${req.headers.host || 'localhost:3000'}`;
+  const parsedUrl = new URL(req.url || '/', baseUrl);
+  const pathname = parsedUrl.pathname;
+
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
+  // Routes (fix paths: /admin.css not /admin/admin.css)
+  if (pathname === '/admin' && req.method === 'GET') {
+    serveStatic(req, res, path.join(__dirname, 'admin.html'));
+  } else if (pathname === '/admin.css' && req.method === 'GET') {
+    serveStatic(req, res, path.join(__dirname, 'admin.css'));
+  } else if (pathname === '/admin.js' && req.method === 'GET') {
+    serveStatic(req, res, path.join(__dirname, 'admin.js'));
+  } else if (pathname === '/api/upload') {
+    handleUpload(req, res);
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not found');
+  }
+});
+
+const PORT = 3001;
+server.listen(PORT, () => {
+  console.log(`🌱 Admin panel running on http://localhost:${PORT}/admin`);
+  console.log('Press Ctrl+C to stop\n');
+});
