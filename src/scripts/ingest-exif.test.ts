@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import { extractDateFromExif, findRemainingMetadata } from './ingest';
+import { extractDateFromExif } from './ingest';
+import { findRemainingMetadata } from './image-metadata';
 
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'ingest-exif');
 

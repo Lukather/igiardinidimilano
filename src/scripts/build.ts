@@ -180,16 +180,16 @@ export async function build(config: BuildConfig = DEFAULT_CONFIG) {
   // ============================================================================
 
   if (errors.length > 0) {
-    console.error('❌ Validation failed with errors:\n');
+    // The message names the file and the offending field: it is printed by the
+    // CLI wrapper and asserted by the end-to-end tests.
+    const details = errors
+      .map(({ file, error }) => `  ${file}:\n    ${error.replace(/\n/g, '\n    ')}`)
+      .join('\n');
 
-    for (const { file, error } of errors) {
-      console.error(`  ${file}:`);
-      console.error(`    ${error}\n`);
-    }
-
-    console.error(`${errors.length} photo(s) failed validation.`);
-
-    throw new Error(`${errors.length} photo(s) failed validation.`);
+    throw new Error(
+      `Validation failed with errors:\n${details}\n\n` +
+        `${errors.length} photo(s) failed validation.`,
+    );
   }
 
   // ============================================================================

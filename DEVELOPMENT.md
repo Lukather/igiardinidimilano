@@ -50,6 +50,11 @@ This is the single publication command. It runs two steps in order:
 
 `src/data/photos.json` is versioned and **reproducible**: same input photos, byte-identical file. Photos are sorted newest first (ties by ID ascending) and the only date in the file, `latestPhotoDate`, comes from the data — there is no build timestamp, so rebuilding without content changes leaves the working tree clean.
 
+**Publishing gate:** `build:site` refuses to publish any image that still carries
+EXIF, GPS, XMP or ICC metadata, or that is not a readable image. The ingest strips
+it with sharp, but nothing else stops an unstripped JPEG from being dropped into
+`src/photos/` by hand — and that would publish the photographer's GPS coordinates.
+
 **Contract between the two steps:** the site build *depends on* the data build. `build:site` fails with an actionable message if `src/data/photos.json` is missing or if the data references an image that does not exist on disk. Only images referenced by the data are published — unreferenced files in `src/photos/` never reach the output.
 
 Running the steps separately is fine when you only need one of them:
@@ -92,13 +97,22 @@ npm run typecheck     # Type check only
 ```
 
 Test files:
-- `src/types/types.test.ts` - Data model validation
-- `src/scripts/ingest.test.ts` - Ingest script
-- `src/scripts/build.test.ts` - Build script
-- `src/scripts/emit-site-assets.test.ts` - Publication of data and images into the build output
+- `src/site-build.test.ts` - **End-to-end**: fixtures in, built site out (data, published images, landing page, validation failures)
+- `src/types/types.test.ts` - Data model and schema validation
 - `src/scripts/build-output.test.ts` - Reproducibility, ordering and validation failures of the data build
+- `src/scripts/emit-site-assets.test.ts` - Publication of data and images, including the metadata gate
 - `src/scripts/photo-id.test.ts` - Photo ID allocation
-- `src/main.test.ts` - Landing page markup
+- `src/scripts/ingest-input.test.ts` - Answers to the ingest prompts and metadata validation
+- `src/scripts/ingest-exif.test.ts` - Date extraction from EXIF and metadata stripping
+- `src/popup.test.ts` - Popup content, including metadata containing markup
+- `src/map-tiles.test.ts` - Tile provider policy
+- `src/admin/admin-assets.test.ts` - Admin panel assets
+
+The suite follows one rule: assert on what the pipeline produces, not on how it is
+built. `site-build.test.ts` is the seam — it runs the real data build and a real
+Vite build over generated fixtures, then inspects the artefacts. Tests that
+asserted on helper functions, on copies of the logic, or on CSS internals were
+removed in favour of it.
 
 ## Data Model
 

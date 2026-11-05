@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 import { emitSiteAssets } from './emit-site-assets';
 
 const TEST_DIR = path.join(process.cwd(), 'tests', 'temp', 'emit-site-assets');
@@ -17,7 +18,13 @@ function writeData(photos: Array<{ id: string; imageFile: string }>): void {
   );
 }
 
-function writeImage(imageFile: string, content = 'fake image data'): void {
+/** A real, metadata-free JPEG: the publishing gate inspects the bytes. */
+let cleanImage: Buffer;
+
+/** A JPEG carrying EXIF, as an unprocessed original would. */
+let imageWithExif: Buffer;
+
+function writeImage(imageFile: string, content: Buffer = cleanImage): void {
   fs.writeFileSync(path.join(PHOTO_DIR, imageFile), content);
 }
 
@@ -26,6 +33,21 @@ function readData(): { photos: Array<{ id: string; imageFile: string }> } {
 }
 
 describe('emitSiteAssets', () => {
+  beforeAll(async () => {
+    cleanImage = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: { r: 20, g: 60, b: 20 } },
+    })
+      .jpeg()
+      .toBuffer();
+
+    imageWithExif = await sharp({
+      create: { width: 32, height: 32, channels: 3, background: { r: 20, g: 60, b: 20 } },
+    })
+      .withMetadata({ exif: { IFD0: { Make: 'TestCam', DateTime: '2024:01:15 10:00:00' } } })
+      .jpeg()
+      .toBuffer();
+  });
+
   beforeEach(() => {
     fs.rmSync(TEST_DIR, { recursive: true, force: true });
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -96,6 +118,60 @@ describe('emitSiteAssets', () => {
 
       expect(fs.existsSync(path.join(OUT_DIR, 'data'))).toBe(true);
       expect(fs.existsSync(path.join(OUT_DIR, 'photos'))).toBe(true);
+    });
+  });
+
+  describe('The publishing gate', () => {
+    it('refuses to publish an image that still carries metadata', () => {
+      writeData([{ id: '2024-01-15-parco-sempione-01', imageFile: 'dirty.jpg' }]);
+      writeImage('dirty.jpg', imageWithExif);
+
+      expect(() =>
+        emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR }),
+      ).toThrow(/dirty\.jpg: exif/);
+    });
+
+    it('names every offending image', () => {
+      writeData([
+        { id: '2024-01-15-parco-sempione-01', imageFile: 'dirty-a.jpg' },
+        { id: '2024-01-15-parco-sempione-02', imageFile: 'dirty-b.jpg' },
+      ]);
+      writeImage('dirty-a.jpg', imageWithExif);
+      writeImage('dirty-b.jpg', imageWithExif);
+
+      expect(() =>
+        emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR }),
+      ).toThrow(/dirty-a\.jpg[\s\S]*dirty-b\.jpg/);
+    });
+
+    it('refuses to publish a file that is not a readable image', () => {
+      writeData([{ id: '2024-01-15-parco-sempione-01', imageFile: 'broken.jpg' }]);
+      fs.writeFileSync(path.join(PHOTO_DIR, 'broken.jpg'), 'not an image');
+
+      expect(() =>
+        emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR }),
+      ).toThrow(/broken\.jpg: not a readable image/);
+    });
+
+    it('writes nothing when the gate rejects an image', () => {
+      writeData([{ id: '2024-01-15-parco-sempione-01', imageFile: 'dirty.jpg' }]);
+      writeImage('dirty.jpg', imageWithExif);
+
+      expect(() =>
+        emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR }),
+      ).toThrow();
+
+      expect(fs.existsSync(path.join(OUT_DIR, 'data', 'photos.json'))).toBe(false);
+    });
+
+    it('publishes a clean image', () => {
+      writeData([{ id: '2024-01-15-parco-sempione-01', imageFile: 'clean.jpg' }]);
+      writeImage('clean.jpg');
+
+      const result = emitSiteAssets({ dataFile: DATA_FILE, photoDir: PHOTO_DIR, outDir: OUT_DIR });
+
+      expect(result).toMatchObject({ photos: 1, images: 1 });
+      expect(fs.existsSync(path.join(OUT_DIR, 'photos', 'clean.jpg'))).toBe(true);
     });
   });
 

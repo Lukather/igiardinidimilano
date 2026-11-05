@@ -28,6 +28,7 @@ import {
   parseDateAnswer,
 } from './ingest-input';
 import type { PhotoCategory } from '../types/types';
+import { findRemainingMetadata } from './image-metadata';
 
 interface ExtractedGPS {
   latitude?: number;
@@ -260,44 +261,6 @@ async function optimizeImage(
 
 // Note: metadata stripping happens automatically within optimizeImage() above,
 // since sharp drops EXIF/IPTC/XMP by default unless withMetadata() is called.
-
-/**
- * Metadata groups ExifReader can report. `file` is excluded on purpose: it
- * holds structural JPEG properties (dimensions, subsampling, file type) that
- * every image has, and counting those made every clean photo look dirty.
- */
-const METADATA_GROUPS = [
-  'exif',
-  'gps',
-  'xmp',
-  'iptc',
-  'icc',
-  'photoshop',
-  'thumbnail',
-  'makerNotes',
-  'mpf',
-  'riff',
-  'gif',
-  'png',
-  'pngText',
-] as const;
-
-/**
- * Names of the metadata groups still present in an image, empty when the
- * image is clean. Used to verify that publishing stripped everything.
- */
-export function findRemainingMetadata(buffer: Buffer): string[] {
-  const tags = ExifReader.load(buffer, { expanded: true }) as Record<string, unknown>;
-
-  return METADATA_GROUPS.filter((group) => {
-    const value = tags[group];
-    return (
-      value !== null &&
-      typeof value === 'object' &&
-      Object.keys(value as Record<string, unknown>).length > 0
-    );
-  });
-}
 
 /**
  * Main ingest workflow

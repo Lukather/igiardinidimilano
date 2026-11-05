@@ -13,10 +13,17 @@
  *
  * Only images referenced by the metadata are copied: unreferenced files in the
  * photo directory are never published.
+ *
+ * This is also the last gate before publishing: an image that still carries
+ * EXIF, GPS, XMP or ICC metadata stops the build. The ingest strips metadata
+ * with sharp, but nothing else prevents an unstripped JPEG from being dropped
+ * into the photo directory by hand — and that would publish the photographer's
+ * GPS coordinates.
  */
 
 import fs from 'fs';
 import path from 'path';
+import { findRemainingMetadata } from './image-metadata';
 
 export interface EmitConfig {
   /** Aggregated site data produced by the data build. */
@@ -103,6 +110,35 @@ export function emitSiteAssets(config: EmitConfig): EmitResult {
       `Site data references ${missing.length} image(s) that do not exist in ` +
         `${path.relative(process.cwd(), config.photoDir)}:\n` +
         missing.map((imageFile) => `  - ${imageFile}`).join('\n'),
+    );
+  }
+
+  const unreadable: string[] = [];
+  const withMetadata: Array<{ imageFile: string; groups: string[] }> = [];
+
+  for (const imageFile of imageFiles) {
+    const buffer = fs.readFileSync(path.join(config.photoDir, imageFile));
+
+    try {
+      const groups = findRemainingMetadata(buffer);
+      if (groups.length > 0) {
+        withMetadata.push({ imageFile, groups });
+      }
+    } catch {
+      // Not a readable image: publishing it would ship a broken file.
+      unreadable.push(imageFile);
+    }
+  }
+
+  if (withMetadata.length > 0 || unreadable.length > 0) {
+    const lines = [
+      ...withMetadata.map(({ imageFile, groups }) => `  - ${imageFile}: ${groups.join(', ')}`),
+      ...unreadable.map((imageFile) => `  - ${imageFile}: not a readable image`),
+    ];
+
+    throw new Error(
+      `${lines.length} image(s) cannot be published:\n${lines.join('\n')}\n` +
+        'Re-ingest them with "npm run ingest" to strip the metadata.',
     );
   }
 
