@@ -24,6 +24,7 @@
 import fs from 'fs';
 import path from 'path';
 import { findRemainingMetadata } from './image-metadata';
+import { IMAGE_BUDGET, isWithinBudget } from './image-budget';
 
 export interface EmitConfig {
   /** Aggregated site data produced by the data build. */
@@ -41,6 +42,8 @@ export interface EmitResult {
   images: number;
   /** Absolute path of the copied data file. */
   dataFile: string;
+  /** Images published above the size budget. */
+  overBudget: string[];
 }
 
 interface SiteDataShape {
@@ -150,10 +153,26 @@ export function emitSiteAssets(config: EmitConfig): EmitResult {
   const outDataFile = path.join(outDataDir, path.basename(config.dataFile));
   fs.copyFileSync(config.dataFile, outDataFile);
 
+  const overBudget: Array<{ imageFile: string; sizeKB: number }> = [];
+
   for (const imageFile of imageFiles) {
-    fs.copyFileSync(
-      path.join(config.photoDir, imageFile),
-      path.join(outPhotoDir, imageFile),
+    const source = path.join(config.photoDir, imageFile);
+    fs.copyFileSync(source, path.join(outPhotoDir, imageFile));
+
+    const bytes = fs.statSync(source).size;
+    if (!isWithinBudget(bytes)) {
+      overBudget.push({ imageFile, sizeKB: bytes / 1024 });
+    }
+  }
+
+  // The budget is indicative, not a hard limit: report it instead of failing.
+  if (overBudget.length > 0) {
+    console.warn(
+      `⚠️  ${overBudget.length} published image(s) over the ${IMAGE_BUDGET.targetSizeKB}KB budget:\n` +
+        overBudget
+          .map(({ imageFile, sizeKB }) => `  - ${imageFile}: ${sizeKB.toFixed(0)}KB`)
+          .join('\n') +
+        '\nRe-ingest them from the original to bring them back within budget.',
     );
   }
 
@@ -175,5 +194,6 @@ export function emitSiteAssets(config: EmitConfig): EmitResult {
     photos: photoCount,
     images: imageFiles.length,
     dataFile: outDataFile,
+    overBudget: overBudget.map(({ imageFile }) => imageFile),
   };
 }

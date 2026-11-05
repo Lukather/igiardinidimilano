@@ -14,6 +14,8 @@ import { build as viteBuild } from 'vite';
 import { build, type BuildConfig } from './scripts/build';
 import { emitSiteAssets } from './scripts/emit-site-assets';
 import { findRemainingMetadata } from './scripts/image-metadata';
+import { optimizeImage } from './scripts/optimize-image';
+import { IMAGE_BUDGET, isWithinBudget } from './scripts/image-budget';
 import type { SiteData } from './types/types';
 
 const ROOT = process.cwd();
@@ -75,11 +77,7 @@ async function writeOriginalPhoto(file: string): Promise<void> {
  * stripped image that actually lands in the photo directory.
  */
 async function publishPhoto(original: string, published: string): Promise<void> {
-  await sharp(original)
-    .rotate()
-    .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 80, progressive: true })
-    .toFile(published);
+  await optimizeImage(original, published);
 }
 
 function writeMetadata(metadata: unknown, fileName: string): void {
@@ -232,6 +230,24 @@ describe('Publishing the site', () => {
       expect(() =>
         emitSiteAssets({ dataFile: DATA_FILE, photoDir: dirtyPhotos, outDir: path.join(dirtyDir, 'dist') }),
       ).toThrow(/cannot be published[\s\S]*exif/);
+    });
+  });
+
+  describe('Published images respect the size budget', () => {
+    it('keeps every published photo within the budget', () => {
+      const published = fs.readdirSync(path.join(OUT_DIR, 'photos'));
+
+      for (const file of published) {
+        const bytes = fs.statSync(path.join(OUT_DIR, 'photos', file)).size;
+        expect({ file, withinBudget: isWithinBudget(bytes) }).toEqual({
+          file,
+          withinBudget: true,
+        });
+      }
+    });
+
+    it('reports the budget it applied', () => {
+      expect(IMAGE_BUDGET.targetSizeKB).toBe(300);
     });
   });
 

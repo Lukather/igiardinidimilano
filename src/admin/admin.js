@@ -317,8 +317,12 @@ async function submitPhoto() {
         ? `\n(esisteva già una foto di questo spazio in questa data: assegnato l'indice ${String(result.index).padStart(2, '0')})`
         : '';
 
+    const sizeNote = result.withinBudget
+      ? `\nPeso: ${result.sizeKB}KB (budget ${result.targetSizeKB}KB)`
+      : `\n⚠️ ${result.sizeKB}KB: non è stato possibile rientrare nel budget di ${result.targetSizeKB}KB senza scendere sotto la qualità minima.`;
+
     showStatus(
-      `✓ Foto caricata! ID: ${result.photoId}${indexNote}\n\nRicordati di eseguire: npm run build && git add . && git commit`,
+      `✓ Foto caricata! ID: ${result.photoId}${indexNote}${sizeNote}\n\nRicordati di eseguire: npm run build && git add . && git commit`,
       'success',
     );
 

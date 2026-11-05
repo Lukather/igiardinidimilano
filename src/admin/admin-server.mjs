@@ -16,8 +16,9 @@ import fs from 'fs';
 import { URL } from 'url';
 import { fileURLToPath } from 'url';
 import busboy from 'busboy';
-import sharp from 'sharp';
 import { allocatePhotoId } from '../scripts/photo-id.ts';
+import { optimizeImage } from '../scripts/optimize-image.ts';
+import { IMAGE_BUDGET } from '../scripts/image-budget.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -28,9 +29,6 @@ const CONFIG = {
   photoDir: path.join(ROOT, 'src', 'photos'),
   metadataDir: path.join(ROOT, 'src', 'data', 'photos'),
   tempDir: path.join(ROOT, '.admin-temp'),
-  maxWidth: 1600,
-  maxHeight: 1600,
-  quality: 80,
 };
 
 // Ensure directories exist
@@ -116,18 +114,9 @@ async function handleUpload(req, res) {
     const imagePath = allocation.imagePath;
     const metadataPath = allocation.metadataPath;
 
-    // Process image: optimize and strip metadata
-    const buffer = await sharp(uploadData.photo)
-      .rotate() // Auto-rotate based on EXIF
-      .resize(CONFIG.maxWidth, CONFIG.maxHeight, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: CONFIG.quality, progressive: true })
-      .toBuffer();
-
-    // Write optimized image
-    fs.writeFileSync(imagePath, buffer);
+    // Process image: optimize against the shared budget and strip metadata.
+    // Same implementation as the CLI ingest (see optimize-image.ts).
+    const optimized = await optimizeImage(uploadData.photo, imagePath);
 
     // Write metadata
     const metadata = {
@@ -144,11 +133,22 @@ async function handleUpload(req, res) {
 
     // Success response
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, photoId, index: allocation.index }));
+    res.end(
+      JSON.stringify({
+        success: true,
+        photoId,
+        index: allocation.index,
+        sizeKB: Math.round(optimized.sizeKB),
+        withinBudget: optimized.withinBudget,
+        targetSizeKB: IMAGE_BUDGET.targetSizeKB,
+      }),
+    );
 
     console.log(
-      `✓ Photo uploaded: ${photoId} (${(buffer.length / 1024).toFixed(1)}KB)` +
-        (allocation.index > 1 ? ` — index ${allocation.index}: slot 01 already taken` : ''),
+      `✓ Photo uploaded: ${photoId} (${optimized.sizeKB.toFixed(0)}KB, ` +
+        `quality ${optimized.quality})` +
+        (allocation.index > 1 ? ` — index ${allocation.index}: slot 01 already taken` : '') +
+        (optimized.withinBudget ? '' : ' — over budget'),
     );
   } catch (error) {
     console.error('Upload error:', error.message);

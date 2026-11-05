@@ -50,7 +50,7 @@ git push
 
 ### 5. Upload Processing
 When you click "Carica Foto":
-1. Image is resized (max 1600×1600) and compressed (~300KB)
+1. Image is resized (max 1600×1600) and compressed towards the 300KB budget (never below 60% quality); the panel reports the final size and warns if the budget could not be met
 2. All EXIF/IPTC/XMP metadata is stripped automatically
 3. Optimized image saved to `src/photos/{photoId}.jpg`
 4. Metadata JSON saved to `src/data/photos/{photoId}.json`
@@ -154,7 +154,7 @@ Run `npm install` to install dependencies
 2. **Image processed** with Sharp:
    - Auto-rotate based on EXIF orientation
    - Resize to max 1600×1600 (preserve aspect ratio)
-   - Compress as JPEG (80% quality)
+   - Compress as JPEG towards the 300KB budget (see `src/scripts/image-budget.ts`)
    - Strip all metadata (automatic)
 3. **Metadata JSON** created with validated fields
 4. **Files written** to disk atomically

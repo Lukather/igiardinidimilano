@@ -9,7 +9,7 @@ The ingest script automates the workflow for adding photos to I Giardini di Mila
 3. **Proposes coordinates** for your confirmation (you can accept, reject, or correct)
 4. **Extracts date** from EXIF (or prompts for manual entry)
 5. **Collects photo metadata** (category, space name, description)
-6. **Optimizes image** (~1600px max, ~80% quality, ~300KB target)
+6. **Optimizes image** (1600px max, 80% quality, 300KB target, never below 60% quality)
 7. **Strips all metadata** (EXIF, IPTC, XMP) for privacy
 8. **Saves optimized image** to `src/photos/`
 9. **Saves metadata** to `src/data/photos/` as JSON
@@ -51,7 +51,7 @@ Description: Parco ben curato, aree verdi lussureggianti e attrezzature funziona
 🆔 Photo ID: 2024-01-15-parco-sempione-01
 
 ⚙️  Optimizing image and stripping metadata...
-✅ Image optimized: 245.67KB (target: ~300KB)
+✅ Image optimized: 245KB (1600×1200, quality 80, target 300KB)
 
 🔐 Verifying metadata is stripped...
 ✅ No metadata found — photo is clean
@@ -99,7 +99,7 @@ The script then:
 - Validates the metadata against the same schema the build uses, **before** writing anything: an invalid value stops the ingest with an error naming the field, and no half-published photo is left on disk
 - Generates a unique photo ID: `YYYY-MM-DD-space-name-NN`, using the first free index — publishing never overwrites an existing photo (see "Photo IDs and collisions" in `DEVELOPMENT.md`)
 - Resizes image to max 1600×1600 pixels (preserving aspect ratio)
-- Compresses with 80% JPEG quality (target ~300KB)
+- Compresses towards the 300KB target: quality is lowered from 80 to no less than 60, then the resolution is reduced (1400, 1200) if needed. If the target still cannot be met, the photo is published anyway and the ingest says so explicitly
 - Strips all EXIF, IPTC, XMP metadata
 - Saves optimized image as `src/photos/{id}.jpg`
 - Saves metadata as `src/data/photos/{id}.json`
@@ -108,7 +108,7 @@ The script then:
 
 ### Optimized Image
 - **Path**: `src/photos/2024-01-15-parco-sempione-01.jpg`
-- **Size**: ~300KB (configurable)
+- **Size**: within the 300KB budget, or explicitly reported as over it. The values live in `src/scripts/image-budget.ts`
 - **Properties**: No metadata, auto-rotated from EXIF orientation
 
 ### Metadata JSON
@@ -164,11 +164,15 @@ Correct the coordinates during the ingest process.
 
 ### Large file size after optimization
 
-If the optimized image is much larger than 300KB:
+The ingest lowers the quality (down to 60) and then the resolution (1400, 1200)
+to reach the 300KB budget. If it prints `⚠️ Over budget`, the photo is published
+anyway — the budget is indicative, not a hard limit — but it means the photo is
+very detailed:
 
-1. The script will still proceed (it's a target, not a hard limit)
-2. You can manually adjust the quality in `DEFAULT_CONFIG` in `ingest.ts`
-3. Typical photos are 200-300KB
+1. Nothing to fix: the file is valid, just heavier than the target
+2. To bring it down, adjust the values in `src/scripts/image-budget.ts` (one
+   place, shared by the CLI and the admin panel) or shoot a less detailed frame
+3. Typical photos land at 200-300KB
 
 ## Legal Notes
 

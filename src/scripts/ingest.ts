@@ -16,11 +16,12 @@
 
 import fs from 'fs';
 import path from 'path';
-import sharp from 'sharp';
 import ExifReader from 'exifreader';
 import readline from 'readline';
 import { fileURLToPath } from 'url';
 import { allocatePhotoId } from './photo-id';
+import { optimizeImage } from './optimize-image';
+import { IMAGE_BUDGET } from './image-budget';
 import {
   buildPhotoMetadata,
   parseCategoryAnswer,
@@ -39,19 +40,13 @@ interface ExtractedGPS {
 interface IngestConfig {
   photoDir: string; // Directory where optimized photos will be stored
   metadataDir: string; // Directory where metadata will be stored
-  maxWidth: number; // Maximum image width
-  maxHeight: number; // Maximum image height
-  quality: number; // JPEG quality (1-100)
-  targetSize: number; // Target file size in KB (informational)
 }
 
+// Image settings (size, quality, budget) live in image-budget.ts: one place
+// for every publishing path.
 const DEFAULT_CONFIG: IngestConfig = {
   photoDir: path.join(process.cwd(), 'src', 'photos'),
   metadataDir: path.join(process.cwd(), 'src', 'data', 'photos'),
-  maxWidth: 1600,
-  maxHeight: 1600,
-  quality: 80,
-  targetSize: 300,
 };
 
 /**
@@ -230,37 +225,9 @@ async function promptMetadata(
   return { date, category, space: space.trim(), description: description.trim() };
 }
 
-/**
- * Optimize image: resize and compress
- */
-async function optimizeImage(
-  inputPath: string,
-  outputPath: string,
-  config: IngestConfig,
-): Promise<{ success: boolean; size: number; error?: string }> {
-  try {
-    const result = await sharp(inputPath)
-      .rotate() // Auto-rotate based on EXIF
-      .resize(config.maxWidth, config.maxHeight, {
-        fit: 'inside',
-        withoutEnlargement: true,
-      })
-      .jpeg({ quality: config.quality, progressive: true })
-      .toFile(outputPath);
 
-    const sizeKB = result.size / 1024;
-    return { success: true, size: sizeKB };
-  } catch (error) {
-    return {
-      success: false,
-      size: 0,
-      error: error instanceof Error ? error.message : 'Failed to optimize image',
-    };
-  }
-}
-
-// Note: metadata stripping happens automatically within optimizeImage() above,
-// since sharp drops EXIF/IPTC/XMP by default unless withMetadata() is called.
+// Note: metadata stripping happens inside optimizeImage() (see
+// optimize-image.ts): sharp drops EXIF/IPTC/XMP unless withMetadata() is called.
 
 /**
  * Main ingest workflow
@@ -403,13 +370,21 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   console.log('\n⚙️  Optimizing image and stripping metadata...');
 
   const outputImagePath = allocation.imagePath;
-  const optimizeResult = await optimizeImage(originalPhotoPath, outputImagePath, config);
+  const optimized = await optimizeImage(originalPhotoPath, outputImagePath);
 
-  if (!optimizeResult.success) {
-    throw new Error(`Failed to optimize image: ${optimizeResult.error}`);
+  console.log(
+    `✅ Image optimized: ${optimized.sizeKB.toFixed(0)}KB ` +
+      `(${optimized.width}×${optimized.height}, quality ${optimized.quality}, ` +
+      `target ${IMAGE_BUDGET.targetSizeKB}KB)`,
+  );
+
+  if (!optimized.withinBudget) {
+    console.log(
+      `⚠️  Over budget: cannot reach ${IMAGE_BUDGET.targetSizeKB}KB without going ` +
+        `below quality ${IMAGE_BUDGET.qualityMin}. The photo is published anyway — ` +
+        'consider a smaller original or a less detailed shot.',
+    );
   }
-
-  console.log(`✅ Image optimized: ${optimizeResult.size.toFixed(2)}KB (target: ~${config.targetSize}KB)`);
 
   // Verify metadata is stripped
   console.log('\n🔐 Verifying metadata is stripped...');

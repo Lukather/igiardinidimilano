@@ -32,7 +32,7 @@ npm run test
    - Enter description (factual, neutral tone)
 
 4. **Output** (created automatically):
-   - `src/photos/{id}.jpg` - Optimized image (no metadata, ~300KB)
+   - `src/photos/{id}.jpg` - Optimized image (no metadata, within the size budget)
    - `src/data/photos/{id}.json` - Photo metadata
 
 ### Publishing the Site
@@ -64,6 +64,26 @@ npm run build:data   # regenerate src/data/photos.json only
 npm run build:site   # rebuild dist/ from the existing data
 npm run preview      # serve dist/ locally
 ```
+
+### Image budget
+
+Every publishing path optimizes against one config, `src/scripts/image-budget.ts`:
+
+| Setting | Value |
+|---|---|
+| Longest side | 1600 px |
+| Target size | **300 KB** |
+| Starting quality | 80 |
+| Quality floor | **60** (never compressed below) |
+| Fallback widths | 1400, 1200 px |
+
+The optimizer keeps the resolution and lowers the quality first; it only reduces
+the resolution once the quality floor is not enough. If the target still cannot
+be met, it writes the smallest acceptable file and says so — the CLI prints
+`⚠️ Over budget`, the admin panel shows the same warning, and `build:site` lists
+every published image above the budget. The spec calls the budget indicative, so
+an over-budget photo is reported, never silently shipped or degraded below the
+floor.
 
 ### Photo IDs and collisions
 
