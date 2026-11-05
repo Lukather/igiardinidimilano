@@ -25,20 +25,26 @@ describe('Landing Page', () => {
       expect(htmlContent).toContain('I Giardini di Milano');
     });
 
-    it('should include Leaflet CSS', () => {
-      expect(htmlContent).toContain('leaflet@1.9.4/dist/leaflet.css');
-    });
-
-    it('should include main CSS', () => {
-      expect(htmlContent).toContain('./styles/main.css');
-    });
-
-    it('should include Leaflet JS', () => {
-      expect(htmlContent).toContain('leaflet@1.9.4/dist/leaflet.js');
-    });
-
     it('should include main TS/JS', () => {
       expect(htmlContent).toContain('./main.ts');
+    });
+
+    it('should not load Leaflet from a CDN', () => {
+      // Leaflet is a bundled dependency: a second copy from a CDN would
+      // download the same library twice.
+      expect(htmlContent).not.toContain('unpkg.com');
+      expect(htmlContent).not.toContain('leaflet@1.9.4');
+      expect(htmlContent).not.toContain('leaflet.js');
+      expect(htmlContent).not.toContain('leaflet.css');
+    });
+
+    it('should not load any script or stylesheet from an external host', () => {
+      // Only resource-loading tags count: outbound links (the licence in the
+      // footer) are fine.
+      const externalScripts = htmlContent.match(/<script[^>]+src="https?:\/\/[^"]+"/g) ?? [];
+      const externalStyles = htmlContent.match(/<link[^>]+href="https?:\/\/[^"]+"/g) ?? [];
+
+      expect([...externalScripts, ...externalStyles]).toEqual([]);
     });
 
     it('should have hero section', () => {

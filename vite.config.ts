@@ -68,6 +68,10 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    // Leaflet's stylesheet references marker icons we never use (the map draws
+    // circle markers). Inlining them as base64 would ship ~7.5 kB to every
+    // visitor; as separate files they are only fetched if something uses them.
+    assetsInlineLimit: 0,
   },
   resolve: {
     alias: {

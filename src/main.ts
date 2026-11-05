@@ -8,6 +8,12 @@
  * - Statistics
  */
 
+// Leaflet ships as a dependency and is bundled here: loading it from a CDN as
+// well would download the same library twice. Its stylesheet is imported so
+// the build emits it once, before the site's own rules (see main.css, which
+// overrides some Leaflet defaults).
+import 'leaflet/dist/leaflet.css';
+import './styles/main.css';
 import L from 'leaflet';
 import type { SiteData, Photo } from './types/types';
 import { MAP_TILES } from './map-tiles';

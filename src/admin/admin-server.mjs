@@ -203,6 +203,8 @@ function serveStatic(req, res, filePath) {
       '.css': 'text/css; charset=utf-8',
       '.js': 'text/javascript; charset=utf-8',
       '.json': 'application/json',
+      '.png': 'image/png',
+      '.svg': 'image/svg+xml',
     };
 
     res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
@@ -241,6 +243,20 @@ const server = http.createServer((req, res) => {
     serveStatic(req, res, path.join(__dirname, 'admin.css'));
   } else if (pathname === '/admin.js' && req.method === 'GET') {
     serveStatic(req, res, path.join(__dirname, 'admin.js'));
+  } else if (pathname.startsWith('/vendor/leaflet/') && req.method === 'GET') {
+    // Leaflet is served from the installed package instead of a CDN: the
+    // panel is a local tool and must work offline. Only known files are
+    // exposed, so the path cannot escape the package directory.
+    const leafletFile = pathname.slice('/vendor/leaflet/'.length);
+    const allowed = ['leaflet.js', 'leaflet.css'];
+
+    if (!allowed.includes(leafletFile)) {
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.end('Not found');
+      return;
+    }
+
+    serveStatic(req, res, path.join(ROOT, 'node_modules', 'leaflet', 'dist', leafletFile));
   } else if (pathname === '/api/upload') {
     handleUpload(req, res);
   } else {
