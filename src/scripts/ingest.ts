@@ -50,33 +50,78 @@ const DEFAULT_CONFIG: IngestConfig = {
 };
 
 /**
+ * Decimal degrees from an ExifReader GPS tag.
+ *
+ * ExifReader does not hand back `[degrees, minutes, seconds]` as plain
+ * numbers. Each component is a rational pair:
+ *
+ *   GPSLatitude.value = [[45, 1], [29, 1], [48917760, 1000000]]
+ *
+ * Adding those together does not produce a number: `[45,1] + NaN + NaN`
+ * concatenates into the string "[45,1]NaNNaN", and the caller's `toFixed`
+ * then throws. The `description` field already carries the decimal value, so
+ * it is preferred; the rational form is the fallback for tags without one.
+ *
+ * Returns null when the tag is missing or cannot be read as a number, so the
+ * caller reports "no GPS" instead of publishing a coordinate that is NaN.
+ */
+export function toDecimalDegrees(
+  tag: { value?: unknown; description?: unknown } | undefined,
+): number | null {
+  if (!tag) {
+    return null;
+  }
+
+  if (typeof tag.description === 'number' && Number.isFinite(tag.description)) {
+    return tag.description;
+  }
+
+  const value = tag.value;
+  if (!Array.isArray(value) || value.length < 3) {
+    return null;
+  }
+
+  const components = value.slice(0, 3).map((component) => {
+    if (Array.isArray(component)) {
+      const [numerator, denominator] = component as number[];
+      return typeof numerator === 'number' && typeof denominator === 'number' && denominator !== 0
+        ? numerator / denominator
+        : NaN;
+    }
+
+    return typeof component === 'number' ? component : NaN;
+  });
+
+  if (components.some((component) => !Number.isFinite(component))) {
+    return null;
+  }
+
+  return components[0] + components[1] / 60 + components[2] / 3600;
+}
+
+/**
  * Extract GPS coordinates from photo EXIF data
  */
-async function extractGPSFromExif(filePath: string): Promise<ExtractedGPS> {
+export async function extractGPSFromExif(filePath: string): Promise<ExtractedGPS> {
   try {
     const buffer = fs.readFileSync(filePath);
     const tags = ExifReader.load(buffer);
 
-    // Check if GPS tags exist
-    if (!tags.GPSLatitude || !tags.GPSLongitude) {
+    const latDecimal = toDecimalDegrees(tags.GPSLatitude);
+    const lonDecimal = toDecimalDegrees(tags.GPSLongitude);
+
+    if (latDecimal === null || lonDecimal === null) {
       return { error: 'No GPS data found in photo EXIF' };
     }
 
-    // Parse latitude
-    const lat = tags.GPSLatitude.value as unknown as number[];
-    const latDecimal = lat[0] + lat[1] / 60 + lat[2] / 3600;
-    const latDirectionValue = tags.GPSLatitudeRef?.value as unknown as string[] | undefined;
-    const latDirection = latDirectionValue ? latDirectionValue[0] : 'N';
-    const latitude = latDirection === 'S' ? -latDecimal : latDecimal;
+    // The direction refs are arrays of strings, e.g. ["N"] and ["E"].
+    const latDirection = firstTagValue(tags.GPSLatitudeRef?.value) ?? 'N';
+    const lonDirection = firstTagValue(tags.GPSLongitudeRef?.value) ?? 'E';
 
-    // Parse longitude
-    const lon = tags.GPSLongitude.value as unknown as number[];
-    const lonDecimal = lon[0] + lon[1] / 60 + lon[2] / 3600;
-    const lonDirectionValue = tags.GPSLongitudeRef?.value as unknown as string[] | undefined;
-    const lonDirection = lonDirectionValue ? lonDirectionValue[0] : 'E';
-    const longitude = lonDirection === 'W' ? -lonDecimal : lonDecimal;
-
-    return { latitude, longitude };
+    return {
+      latitude: latDirection === 'S' ? -latDecimal : latDecimal,
+      longitude: lonDirection === 'W' ? -lonDecimal : lonDecimal,
+    };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Failed to extract GPS from EXIF',
