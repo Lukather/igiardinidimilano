@@ -265,6 +265,67 @@ proporre le coordinate, e lo strip avviene alla pubblicazione, dove è sempre
 avvenuto. Il tipo dell'immagine è deciso dai magic byte, mai dal nome del file
 né dal `Content-Type` dichiarato.
 
+### Moderare una submission
+
+La coda è il bucket `pending/`. Non c'è una UI: si guarda dal dashboard R2, o si
+legge una singola submission da terminale.
+
+```bash
+# leggere i campi di una submission
+npx wrangler r2 object get "igiardinidimilano-pending/pending/<id>/submission.json" --remote --pipe
+
+# scaricare l'originale da esaminare
+npx wrangler r2 object get "igiardinidimilano-pending/pending/<id>/original.jpg" --remote --file originale.jpg
+```
+
+#### Approvare
+
+1. Guarda la foto e applica la checklist legale (volti, targhe, opere d'arte).
+2. Lancia l'ingest sull'originale scaricato:
+
+   ```bash
+   npm run ingest originale.jpg
+   ```
+
+3. Rispondi ai prompt con i valori della submission. **La categoria proposta si
+   può cambiare, ed è il punto della moderazione**: la tassonomia è ciò su cui
+   poggia la credibilità del sito, e chi carica propone, non decide. Se la foto
+   non mostra nessuno dei segni oggettivi, la categoria è `curato` anche se la
+   submission diceva il contrario.
+4. `npm run build` per vedere il risultato in locale, poi commit e push.
+5. **Cancella la submission dallo staging**: pubblicata la foto, l'originale non
+   serve più e non ha senso aspettare la scadenza dei 30 giorni.
+
+   ```bash
+   npx wrangler r2 object delete "igiardinidimilano-pending/pending/<id>/original.jpg" --remote
+   npx wrangler r2 object delete "igiardinidimilano-pending/pending/<id>/submission.json" --remote
+   ```
+
+#### Rifiutare
+
+Basta cancellare il prefisso. Nessun altro passo: niente viene mai scritto nel
+repo prima dell'approvazione, quindi il rifiuto è completo nel momento in cui gli
+oggetti spariscono.
+
+```bash
+npx wrangler r2 object delete "igiardinidimilano-pending/pending/<id>/original.jpg" --remote
+npx wrangler r2 object delete "igiardinidimilano-pending/pending/<id>/submission.json" --remote
+```
+
+#### Metadati incompleti o sbagliati
+
+L'ingest chiede tutto, quindi si corregge durante l'approvazione: nome dello
+spazio, descrizione, data e coordinate si possono riscrivere senza toccare la
+submission. Casi tipici:
+
+| Situazione | Cosa fare |
+|---|---|
+| Coordinate fuori da Milano o palesemente sbagliate | correggile nell'ingest, o rilancia il pin su una mappa |
+| Descrizione troppo corta o inutilizzabile | riscrivila tu: il tono resta documentario e neutro |
+| Nome dello spazio inventato o ambiguo | usa il nome reale del luogo |
+| Foto che non mostra nessuno spazio verde | rifiuta |
+| Foto troppo piccola o illeggibile | rifiuta |
+
 ### Deploy del form
 
 `.github/workflows/deploy-form.yml` pubblica su Workers a ogni push su `main`
