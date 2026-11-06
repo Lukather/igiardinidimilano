@@ -4,6 +4,8 @@ Foto geolocalizzate degli spazi verdi di Milano — curati e in degrado — su u
 mappa. Un sito documentaristico: le foto e i fatti visibili parlano, il sito non
 giudica.
 
+**Sito pubblicato:** https://lukather.github.io/igiardinidimilano/
+
 Lo stato del verde pubblico cambia enormemente da un quartiere all'altro, ma la
 differenza non è visibile se non camminandoci accanto. Il sito la rende leggibile
 a colpo d'occhio: marker verdi per gli spazi curati, rossi per quelli in degrado,
@@ -182,11 +184,13 @@ degradata sotto la soglia di qualità né pubblicata in silenzio.
 ## Deploy
 
 Il deploy avviene da GitHub Actions su GitHub Pages a ogni push su `main`
-(`.github/workflows/deploy.yml`): il workflow esegue i test, costruisce `dist/` e
-lo pubblica. La prima volta va attivato una sola volta, nelle impostazioni del
-repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+(`.github/workflows/deploy.yml`): il workflow esegue typecheck e test, costruisce
+`dist/` e lo pubblica. Il sito è su
+https://lukather.github.io/igiardinidimilano/.
 
-Il sito finisce su `https://<utente>.github.io/igiardinidimilano/`.
+Su un repo nuovo l'unico passaggio manuale, una volta sola, è
+**Settings → Pages → Build and deployment → Source: GitHub Actions**. Pages è
+gratuito per i repo pubblici; su un repo privato richiede un piano a pagamento.
 
 Per usare un altro hosting statico (Netlify, Cloudflare Pages, un bucket S3, un
 server nginx) non serve configurazione: si pubblica il contenuto di `dist/`. Su
