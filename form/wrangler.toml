@@ -1,0 +1,29 @@
+# Cloudflare Worker that serves the public upload form and its endpoint.
+#
+# A Worker rather than a Pages project: `wrangler.toml` is the single source of
+# truth for bindings, and it is applied by both `wrangler dev` and
+# `wrangler deploy`. A Pages project reads this file but does not apply the
+# bindings locally, which would split local and production configuration.
+#
+# Deployed by .github/workflows/deploy-form.yml, never by Cloudflare's Git
+# integration: the tests must run before the form goes live.
+
+name = "igiardinidimilano-carica"
+main = "worker/index.ts"
+compatibility_date = "2026-11-01"
+
+# The built form. Requests that match a file here are served without waking the
+# Worker; everything else falls through to it, which is how /api/upload is routed.
+[assets]
+directory = "./dist"
+
+[[r2_buckets]]
+binding = "PENDING"
+bucket_name = "igiardinidimilano-pending"
+
+# No [vars] here on purpose. The Turnstile site key is only needed by the
+# browser, so it is baked into the form at build time (VITE_TURNSTILE_SITEKEY),
+# not exposed to the Worker, which only ever checks the secret.
+#
+# TURNSTILE_SECRET is a secret: `.dev.vars` locally, `wrangler secret put` in
+# production. It is never written to this file.

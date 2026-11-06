@@ -25,3 +25,14 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # The upload form is a separate deployable with its own runtime, so it
+      # gets its own checks rather than riding on the site's.
+      - name: Typecheck form
+        run: npm run typecheck:form
+
+      - name: Test form
+        run: npm run test:form
+
+      - name: Build form
+        run: npm run build:form

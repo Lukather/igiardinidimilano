@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Carica una foto · I Giardini di Milano</title>
+  <meta name="description" content="Carica una foto degli spazi verdi di Milano. Le foto sono moderate prima della pubblicazione." />
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <a class="back" href="https://lukather.github.io/igiardinidimilano/">← I Giardini di Milano</a>
+      <h1>Carica una foto</h1>
+      <p class="lede">
+        Fotografa uno spazio verde della tua zona — curato o in degrado — e caricalo qui.
+        Non serve registrarsi e non chiediamo la tua email.
+      </p>
+      <p class="notice">
+        Ogni foto viene <strong>rivista prima di essere pubblicata</strong>. Se non rispetta
+        le regole viene cancellata subito.
+      </p>
+    </header>
+
+    <form id="upload-form" novalidate>
+      <section class="card">
+        <h2>1. La foto</h2>
+        <label class="dropzone" for="photo-input">
+          <input type="file" id="photo-input" name="photo" accept="image/jpeg,image/png,image/webp" required />
+          <span id="photo-hint">Tocca per scegliere una foto · JPEG, PNG o WebP · max 15 MB</span>
+        </label>
+        <img id="photo-preview" class="preview" alt="" hidden />
+      </section>
+
+      <section class="card">
+        <h2>2. Dove</h2>
+        <p class="help">Tocca la mappa nel punto in cui hai scattato. Serve anche se la foto ha già il GPS.</p>
+        <div id="map" class="map" role="application" aria-label="Mappa per posizionare la foto"></div>
+        <p id="coords-status" class="coords">Nessuna posizione scelta</p>
+        <input type="hidden" id="latitude" name="latitude" />
+        <input type="hidden" id="longitude" name="longitude" />
+      </section>
+
+      <section class="card">
+        <h2>3. Cosa si vede</h2>
+
+        <fieldset class="field">
+          <legend>Stato dello spazio</legend>
+          <p class="help">
+            Scegli <strong>in degrado</strong> se nella foto si vede almeno uno di questi segni:
+            rifiuti diffusi o accumulati; piante morte o secche diffuse; attrezzature rotte
+            (panchine, giochi, fontane, recinzioni); pavimentazioni rotte o pericolanti;
+            acqua stagnante da drenaggio guasto.
+          </p>
+          <p class="help">
+            <strong>L'erba alta da sola non basta</strong>: i prati naturalistici sono
+            manutenzione, non abbandono. Conta solo insieme a un altro segno della lista.
+            Se non vedi nessuno di questi segni, lo spazio è <strong>curato</strong>.
+          </p>
+          <div class="choices">
+            <label class="choice">
+              <input type="radio" name="category" value="curato" required />
+              <span>● Curato</span>
+            </label>
+            <label class="choice">
+              <input type="radio" name="category" value="in degrado" required />
+              <span>▲ In degrado</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="field">
+          <label for="space">Nome dello spazio verde</label>
+          <input type="text" id="space" name="space" maxlength="100" placeholder="Es: Parco Sempione" required />
+        </div>
+
+        <div class="field">
+          <label for="description">Descrizione <span class="counter" id="desc-count">0/500</span></label>
+          <textarea id="description" name="description" rows="4" minlength="10" maxlength="500"
+            placeholder="Descrivi cosa si vede nella foto, senza giudizi" required></textarea>
+        </div>
+
+        <div class="field">
+          <label for="date">Data dello scatto</label>
+          <input type="date" id="date" name="date" required />
+        </div>
+
+        <div class="field">
+          <label for="author">Il tuo nome o nick <span class="optional">(facoltativo)</span></label>
+          <input type="text" id="author" name="author" maxlength="100" placeholder="Compare come credito sulla foto" />
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>4. Prima di inviare</h2>
+
+        <div class="rules">
+          <p>Controlla che nella foto <strong>non si veda</strong>:</p>
+          <ul>
+            <li>un volto riconoscibile</li>
+            <li>una targa leggibile</li>
+            <li>un'opera d'arte, una statua o un murale riconoscibile</li>
+          </ul>
+        </div>
+
+        <label class="declaration">
+          <input type="checkbox" id="declaration" required />
+          <span>
+            Dichiaro di essere l'autore di questa foto, o di avere i diritti per concederla con
+            licenza <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.it" target="_blank" rel="noopener">CC BY-SA 4.0</a>,
+            e di aver letto l'<a href="#privacy">informativa privacy</a>.
+          </span>
+        </label>
+
+        <div id="turnstile" class="turnstile"></div>
+
+        <button type="submit" id="submit" class="submit" disabled>Invia la foto</button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+    </form>
+
+    <section id="privacy" class="card privacy">
+      <h2>Informativa privacy</h2>
+      <p>
+        Raccogliamo la foto che carichi, i dati che scrivi nel form e, per pochi secondi, il tuo
+        indirizzo IP: serve solo a limitare gli invii automatici e non viene conservato.
+        Non chiediamo registrazione né email.
+      </p>
+      <p>
+        Se la foto viene <strong>rifiutata</strong> viene cancellata subito.
+        Se <strong>non viene esaminata</strong> entro 30 giorni viene cancellata automaticamente.
+        Se viene <strong>pubblicata</strong> resta online con licenza CC BY-SA 4.0.
+      </p>
+      <p>
+        Per chiedere la rimozione di una foto che ti ritrae o che viola un diritto, scrivi a
+        <a href="mailto:rimozioni@igiardinidimilano.it">rimozioni@igiardinidimilano.it</a>.
+      </p>
+    </section>
+
+    <footer class="page-footer">
+      <p>I Giardini di Milano · Foto CC BY-SA 4.0</p>
+    </footer>
+  </main>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+name: Deploy form
+
+# Publishes the public upload form to Cloudflare Workers.
+#
+# One-time setup, all of it in the repo settings:
+#   - secret   CLOUDFLARE_API_TOKEN   token with "Workers Scripts:Edit" + "Workers R2 Storage:Edit"
+#   - secret   CLOUDFLARE_ACCOUNT_ID
+#   - variable TURNSTILE_SITEKEY      the public site key of the Turnstile widget
+#   - secret   TURNSTILE_SECRET       set on the Worker with `wrangler secret put`, not here
+#
+# Until the API token exists the deploy step is skipped with a notice, so a
+# push never turns red for a missing credential.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'form/**'
+      - '.github/workflows/deploy-form.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-form
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # A broken form must not ship, so the checks run before the build.
+      - run: npm run typecheck:form
+      - run: npm run test:form
+
+      - name: Build form
+        run: npm run build:form
+        env:
+          VITE_TURNSTILE_SITEKEY: ${{ vars.TURNSTILE_SITEKEY }}
+
+      # Assert on the artefact, not on the configuration: whatever route the
+      # test key could take into the build, this catches it.
+      - name: Refuse to ship the Turnstile test key
+        run: |
+          if grep -rq '1x00000000000000000000AA' form/dist; then
+            echo "::error::Il form è stato costruito con la chiave Turnstile di test: nessuna verifica anti-bot. Configura la variabile TURNSTILE_SITEKEY."
+            exit 1
+          fi
+
+      - name: Check credentials
+        id: creds
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN non configurato: deploy del form saltato."
+          fi
+
+      - name: Deploy
+        if: steps.creds.outputs.ready == 'true'
+        run: npm run deploy:form
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

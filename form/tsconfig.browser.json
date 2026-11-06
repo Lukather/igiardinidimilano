@@ -1,0 +1,18 @@
+{
+  "//": "The form UI runs in a browser; the Worker code must not see the DOM. Keeping them in separate projects is what stops HTML globals leaking into the endpoint.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "types": []
+  },
+  "include": ["main.ts", "src/env.d.ts"]
+}

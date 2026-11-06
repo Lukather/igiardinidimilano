@@ -217,15 +217,86 @@ Publish directory: dist
 
 Il dominio pubblico è una decisione ancora aperta e non blocca il deploy.
 
+## Il form pubblico
+
+Un secondo deployable, separato dal sito: un form anonimo dove chiunque può
+proporre una foto di uno spazio verde. Una foto per invio, massimo 15 MB.
+
+**Niente si pubblica senza moderazione.** Il form deposita la foto in uno
+staging su Cloudflare R2; il proprietario la esamina e decide. Il sito pubblicato
+non cambia: cambia solo come le foto arrivano nel repo.
+
+```
+form/ (Worker + form statico)  →  R2 bucket "pending/"  →  moderazione  →  ingest
+```
+
+Il form è un **Worker con static assets**, non un progetto Pages: con Pages
+`wrangler.toml` viene letto ma le bindings non vengono applicate in locale, e la
+configurazione finirebbe divisa fra flag CLI e dashboard. Con un Worker lo stesso
+`wrangler.toml` vale per `wrangler dev` e per `wrangler deploy`.
+
+### Sviluppo locale
+
+```bash
+npm run dev:form        # http://localhost:8787
+```
+
+Serve un file `form/.dev.vars` (gitignored) con il segreto Turnstile. In locale
+si usa la chiave di test di Cloudflare, che passa sempre:
+
+```
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA
+```
+
+Il sito key del browser ha come default la chiave di test; per usare quella vera
+si passa `VITE_TURNSTILE_SITEKEY` al build.
+
+### Cosa finisce in staging
+
+Ogni invio produce due oggetti sotto un prefisso unico, generato dal server:
+
+```
+pending/<id>/original.<ext>     l'originale, con i suoi EXIF
+pending/<id>/submission.json    i campi del form
+```
+
+L'originale conserva i metadati **di proposito**: l'ingest ne legge il GPS per
+proporre le coordinate, e lo strip avviene alla pubblicazione, dove è sempre
+avvenuto. Il tipo dell'immagine è deciso dai magic byte, mai dal nome del file
+né dal `Content-Type` dichiarato.
+
+### Deploy del form
+
+`.github/workflows/deploy-form.yml` pubblica su Workers a ogni push su `main`
+che tocchi `form/`. Servono, una volta sola, nelle impostazioni del repo:
+
+| Tipo | Nome | Cos'è |
+|---|---|---|
+| secret | `CLOUDFLARE_API_TOKEN` | token con `Workers Scripts:Edit` e `Workers R2 Storage:Edit` |
+| secret | `CLOUDFLARE_ACCOUNT_ID` | l'ID dell'account Cloudflare |
+| variable | `TURNSTILE_SITEKEY` | la site key pubblica del widget Turnstile |
+
+Il segreto Turnstile si imposta sul Worker, non nel repo:
+
+```bash
+npx wrangler secret put TURNSTILE_SECRET --cwd form
+```
+
+Finché il token non esiste, il workflow salta il deploy con un avviso invece di
+fallire. E se il form viene costruito con la chiave Turnstile di test, il deploy
+si ferma: sarebbe un endpoint senza verifica anti-bot.
+
 ## Test
 
 ```bash
-npm run test:run
+npm run test:run        # sito
 npm run typecheck
+npm run test:form       # form pubblico
+npm run typecheck:form
 ```
 
-Entrambi girano in CI a ogni push e a ogni pull request
-(`.github/workflows/ci.yml`), insieme al build.
+Tutti girano in CI a ogni push e a ogni pull request
+(`.github/workflows/ci.yml`), insieme ai due build.
 
 La suite segue una regola sola: **asserisce su ciò che la pipeline produce, non
 su come è costruita**. Il seam è il build: `src/site-build.test.ts` esegue il
@@ -233,6 +304,12 @@ build dei dati e un build Vite reale su fixture generate, poi ispeziona gli
 artefatti (immagini senza metadati, dati coerenti, landing page, fallimenti di
 validazione). Gli altri file coprono il modello dati, l'allocazione degli ID, il
 pannello admin e le risposte ai prompt di ingest.
+
+Il form ha la stessa regola e un seam suo: **una richiesta HTTP entra, oggetti su
+R2 escono**. I test girano contro un R2 vero (Miniflare, lo stesso motore che usa
+`wrangler dev`), non contro un mock: un mock verificherebbe solo il mock.
+L'endpoint è testato senza il runtime di Cloudflare, perché la logica sta in
+`form/src/upload-handler.ts` e il Worker è un adapter di poche righe.
 
 ## Problemi comuni
 
@@ -277,11 +354,22 @@ src/
   data/photos.json        dato aggregato generato dal build
 tests/fixtures/           generatori di immagini sintetiche per i test
 docs/agents/              note di lavoro per gli agenti (issue tracker, dominio)
+
+form/                     deployable separato: il form pubblico
+  index.html, main.ts     il form (Vite)
+  style.css               stili del form
+  worker/index.ts         entry del Worker: instrada /api/upload
+  src/upload-handler.ts   validazione, magic byte, Turnstile, scrittura su R2
+  src/submission.ts       campi, limiti, id delle submission
+  src/image-type.ts       riconoscimento del tipo per magic byte
+  src/turnstile.ts        verifica anti-bot
+  test/                   test contro un R2 reale (Miniflare)
+  wrangler.toml           binding e asset del Worker
 ```
 
 Stack: TypeScript, Vite, Leaflet, sharp. Tile della mappa da un CDN keyless
 conforme alla policy OpenStreetMap (`tile.openstreetmap.de`, FOSSGIS e.V.),
-nessuna chiave API.
+nessuna chiave API. Il form gira su Cloudflare Workers con staging su R2.
 
 ## Licenza
 
@@ -294,4 +382,5 @@ coperto da quella licenza.
 ## Riferimenti
 
 - Specifica v1 completa: [issue #7](https://github.com/Lukather/igiardinidimilano/issues/7)
+- Specifica v2 (upload pubblico): [issue #22](https://github.com/Lukather/igiardinidimilano/issues/22)
 - Note di lavoro per gli agenti: `docs/agents/`

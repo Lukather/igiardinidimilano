@@ -23,3 +23,8 @@ tests/fixtures/temp/
 /*.png
 /*.jpeg
 *.original.*
+
+# Cloudflare Workers / form
+.dev.vars
+.wrangler/
+form/dist/
