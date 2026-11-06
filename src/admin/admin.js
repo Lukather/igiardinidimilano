@@ -174,10 +174,21 @@ function initMap() {
     setMarker(lat, lng);
   });
 
-  // Scroll zoom disabled by default (same as main site)
+  // Scroll zoom only with CTRL + wheel (same as main site): a plain wheel keeps
+  // scrolling the page so the map doesn't swallow it.
   map.scrollWheelZoom.disable();
-  map.getContainer().addEventListener('mouseenter', () => map.scrollWheelZoom.enable());
-  map.getContainer().addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
+  map.getContainer().addEventListener(
+    'wheel',
+    (event) => {
+      if (!event.ctrlKey) {
+        map.scrollWheelZoom.disable();
+        return;
+      }
+      map.scrollWheelZoom.enable();
+      event.preventDefault();
+    },
+    { capture: true, passive: false }
+  );
 
   // If we have coordinates, show marker
   if (selectedCoordinates.latitude && selectedCoordinates.longitude) {

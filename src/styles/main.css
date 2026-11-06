@@ -442,6 +442,16 @@ body {
   color: var(--color-red);
 }
 
+/* Discoverability for the CTRL + wheel zoom: without it the map looks
+ * un-zoomable, since a plain wheel deliberately scrolls the page instead. */
+.map-hint {
+  margin: var(--spacing-md) 0 0;
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
 /* Mobile: map controls repositioned */
 @media (max-width: 768px) {
   .map-controls {
@@ -455,6 +465,10 @@ body {
   .filter-group {
     flex-direction: row;
     gap: var(--spacing-lg);
+  }
+
+  .map-hint {
+    margin-top: var(--spacing-sm);
   }
 }
 

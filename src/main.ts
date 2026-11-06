@@ -113,8 +113,7 @@ function updateStats(stats: { totalPhotos: number; curatedSpaces: number; degrad
 function initMap(): L.Map {
   // Create map centered on Milan.
   // scrollWheelZoom starts disabled so that scrolling the page past the map
-  // doesn't get hijacked into zooming; it's enabled once the user actively
-  // engages with the map (click) and disabled again when they leave it.
+  // doesn't get hijacked into zooming; see enableCtrlWheelZoom() below.
   const map = L.map('map', {
     scrollWheelZoom: false,
   }).setView(MILAN_CENTER, MILAN_ZOOM);
@@ -129,18 +128,45 @@ function initMap(): L.Map {
     detectRetina: MAP_TILES.detectRetina,
   }).addTo(map);
 
-  // Enable scroll-to-zoom only while the cursor is over the map, so page
-  // scroll works normally everywhere else. This improves UX when scrolling
-  // through the page past the map section.
-  map.on('click', () => map.scrollWheelZoom.enable());
-  map.getContainer().addEventListener('mouseenter', () => map.scrollWheelZoom.enable());
-  map.getContainer().addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
+  enableCtrlWheelZoom(map);
 
   // Fix sizing issues caused by the map being laid out before its
   // container reaches full size (common on initial load).
   setTimeout(() => map.invalidateSize(), 200);
 
   return map;
+}
+
+/**
+ * Zoom with CTRL + wheel (or a trackpad pinch) only.
+ *
+ * A plain wheel never zooms the map: the page keeps scrolling past it, which
+ * is what a visitor scrolling through the site expects. CTRL + wheel zooms,
+ * and browsers report trackpad pinch gestures as CTRL + wheel events, so
+ * pinch-to-zoom works too.
+ *
+ * Implementation: Leaflet's own handler stays disabled and is switched on for
+ * the duration of a CTRL wheel event from a capture-phase listener, so it runs
+ * before Leaflet's bubble-phase one on the same container. That reuses
+ * Leaflet's tuned behaviour — debounce for high-resolution trackpads, zoom
+ * animation, zoom limits, zoom anchored under the cursor — instead of
+ * reimplementing the wheel-delta maths.
+ */
+function enableCtrlWheelZoom(map: L.Map): void {
+  map.getContainer().addEventListener(
+    'wheel',
+    (event: WheelEvent) => {
+      if (!event.ctrlKey) {
+        map.scrollWheelZoom.disable();
+        return;
+      }
+      map.scrollWheelZoom.enable();
+      // Also stop the browser's own CTRL + wheel page zoom, in case the wheel
+      // event is the first one and Leaflet's handler is only now attached.
+      event.preventDefault();
+    },
+    { capture: true, passive: false }
+  );
 }
 
 // ============================================================================
