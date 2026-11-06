@@ -56,7 +56,8 @@ export const MILAN_BOUNDS = {
 /**
  * Photo metadata - the unit of content in v1.
  * 
- * All fields are required. The build will fail if any are missing or invalid.
+ * All fields are required except `author`. The build will fail if any required
+ * field is missing or invalid.
  */
 export interface Photo {
   /**
@@ -100,6 +101,15 @@ export interface Photo {
    * The actual file is stored in src/photos/
    */
   imageFile: string;
+
+  /**
+   * Optional credit: the name or nickname of who took the photo.
+   *
+   * Absent means "no per-photo credit": the site-wide attribution in the
+   * footer applies. It is never stored as an empty string - an empty answer
+   * at ingest time leaves the field out entirely.
+   */
+  author?: string;
 }
 
 // ============================================================================

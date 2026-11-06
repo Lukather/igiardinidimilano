@@ -42,6 +42,8 @@ const FIXTURES = [
     description: 'Giardino curato con prato tagliato e panchine integre',
     space: 'Giardino Curato',
     imageFile: '2024-03-10-giardino-curato-01.jpg',
+    // Only one fixture carries a credit: the other must stay valid without it.
+    author: 'Lorenzo',
   },
   {
     id: '2024-03-12-area-degradata-01',
@@ -291,6 +293,16 @@ describe('Publishing the site', () => {
         expect(photo?.category).toBe(fixture.category);
         expect(photo?.space).toBe(fixture.space);
       }
+    });
+
+    it('carries the optional author through to the published data', () => {
+      const data = readSiteData();
+      const credited = data.photos.find((p) => p.id === '2024-03-10-giardino-curato-01');
+      const uncredited = data.photos.find((p) => p.id === '2024-03-12-area-degradata-01');
+
+      expect(credited?.author).toBe('Lorenzo');
+      // A photo without an author is still valid, and gains no empty field.
+      expect(uncredited?.author).toBeUndefined();
     });
 
     it('counts what the fixtures contain', () => {

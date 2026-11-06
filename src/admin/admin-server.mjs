@@ -106,6 +106,8 @@ async function handleUpload(req, res) {
       description: upload.description ?? '',
       space: upload.space ?? '',
       imageFile: allocation.imageFile,
+      // Optional: the shared normaliser turns a blank answer into "no credit".
+      author: upload.author ?? '',
     });
 
     const optimized = await optimizeImage(upload.photo, allocation.imagePath);

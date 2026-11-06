@@ -340,6 +340,15 @@ body {
   opacity: 1;
 }
 
+/* Per-photo credit. Rendered only when the metadata carries an author, so an
+ * absent credit means no line at all rather than an empty one. */
+.photo-popup-author {
+  margin: 0 0 var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+  color: #555;
+}
+
 /* Map markers
  *
  * The category is carried by three channels: colour, symbol and border style.

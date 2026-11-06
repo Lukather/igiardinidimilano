@@ -84,6 +84,15 @@ export const photoSchema = z.object({
     .regex(/\.(jpg|jpeg|png|webp)$/i, {
       message: 'Image file must have a valid extension (jpg, jpeg, png, webp)',
     }),
+  // Optional credit for who took the photo. Absent is the normal case: the
+  // site-wide attribution in the footer covers it. When present it must say
+  // something, so a blank value is rejected rather than published as a
+  // nameless credit.
+  author: z.string()
+    .trim()
+    .min(1, { message: 'Author must not be blank' })
+    .max(100, { message: 'Author must be at most 100 characters' })
+    .optional(),
 });
 
 /** Array schema for validating multiple photos */

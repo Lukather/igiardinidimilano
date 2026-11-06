@@ -89,6 +89,20 @@ export interface PhotoMetadataInput {
   description: string;
   space: string;
   imageFile: string;
+  /** Optional credit. Empty or whitespace-only means "no credit". */
+  author?: string;
+}
+
+/**
+ * Normalise the optional author answer.
+ *
+ * An empty answer is not a credit: it becomes `undefined`, so the metadata
+ * never carries `"author": ""` and the popup never renders an empty line.
+ */
+export function normalizeAuthor(author: string | undefined): string | undefined {
+  const trimmed = author?.trim();
+
+  return trimmed ? trimmed : undefined;
 }
 
 /**
@@ -100,7 +114,10 @@ export interface PhotoMetadataInput {
  * cause.
  */
 export function buildPhotoMetadata(input: PhotoMetadataInput): Photo {
-  const result = photoSchema.safeParse(input);
+  const result = photoSchema.safeParse({
+    ...input,
+    author: normalizeAuthor(input.author),
+  });
 
   if (!result.success) {
     const details = result.error.errors

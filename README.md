@@ -59,6 +59,10 @@ Interfaccia locale: trascini la foto, clicchi la posizione sulla mappa,
 compili i campi, carichi. Il pannello rigenera già `src/data/photos.json`.
 Poi `npm run build` per aggiornare `dist/`, e commit.
 
+I campi sono data, categoria, nome dello spazio, descrizione e — facoltativo —
+**autore**: il nome o nick di chi ha scattato. Lasciato vuoto non viene scritto
+nei metadati, e la foto non mostra alcun credito per foto.
+
 Il pannello ascolta solo su loopback e non ha autenticazione: **non va
 deployato**. Gli upload sono limitati a 25 MB (`ADMIN_MAX_UPLOAD_MB`), la porta
 si cambia con `ADMIN_PORT`.
@@ -70,8 +74,11 @@ npm run ingest /percorso/alla/foto-originale.jpg
 ```
 
 Lo script propone le coordinate lette dall'EXIF e la data, chiede conferma o
-correzione, poi chiede categoria, nome dello spazio e descrizione. Se la foto
-non ha GPS, le coordinate si inseriscono a mano come `lat,lon`.
+correzione, poi chiede categoria, nome dello spazio, descrizione e autore. Se la
+foto non ha GPS, le coordinate si inseriscono a mano come `lat,lon`.
+
+L'autore è l'unica domanda facoltativa: `Author (optional, press Enter to skip)`.
+Premendo Invio il campo non viene scritto affatto — non come stringa vuota.
 
 ### Regole per la foto
 
@@ -134,6 +141,8 @@ il campo:
 - data mancante o non valida
 - descrizione fuori dai 10–500 caratteri
 - nome dello spazio mancante
+- autore presente ma vuoto, o più lungo di 100 caratteri (il campo è
+  facoltativo: assente è valido, vuoto no)
 - immagine referenziata che non esiste in `src/photos/`
 - immagine che porta ancora metadati, o che è troppo piccola per essere una foto
   vera (soglia anti-segnaposto)
@@ -148,13 +157,18 @@ il campo:
   "date": "2024-01-15",
   "description": "Parco ben curato, prato tagliato e panchine integre",
   "space": "Parco Sempione",
-  "imageFile": "2024-01-15-parco-sempione-01.jpg"
+  "imageFile": "2024-01-15-parco-sempione-01.jpg",
+  "author": "Lorenzo"
 }
 ```
 
 L'unità di contenuto è la foto. Lo "spazio verde" è un campo testuale, non una
 scheda: più foto possono condividere lo stesso `space`. La categoria è binaria
 in v1 ma il modello ammette valori futuri senza migrazione.
+
+`author` è l'unico campo facoltativo: quando c'è, il popup della mappa mostra
+"Foto di …"; quando manca, la foto è comunque valida e non compare alcuna riga
+di credito.
 
 ### ID e sovrascritture
 

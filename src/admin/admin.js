@@ -37,6 +37,7 @@ const categoryInput = document.getElementById('category-input');
 const spaceInput = document.getElementById('space-input');
 const descriptionInput = document.getElementById('description-input');
 const descCount = document.getElementById('desc-count');
+const authorInput = document.getElementById('author-input');
 const submitBtn = document.getElementById('submit-btn');
 const resetBtn = document.getElementById('reset-btn');
 const statusEl = document.getElementById('status');
@@ -256,6 +257,7 @@ resetBtn.addEventListener('click', () => {
   categoryInput.value = '';
   spaceInput.value = '';
   descriptionInput.value = '';
+  authorInput.value = '';
   descCount.textContent = '0/500';
   statusEl.classList.add('hidden');
   updateFormState();
@@ -296,6 +298,8 @@ async function submitPhoto() {
   formData.append('category', categoryInput.value);
   formData.append('space', spaceInput.value);
   formData.append('description', descriptionInput.value);
+  // Optional: an empty value is sent as-is, the server normalises it away.
+  formData.append('author', authorInput.value);
 
   try {
     showStatus('⏳ Caricamento in corso...', 'loading');
@@ -339,6 +343,7 @@ async function submitPhoto() {
       categoryInput.value = '';
       spaceInput.value = '';
       descriptionInput.value = '';
+      authorInput.value = '';
       descCount.textContent = '0/500';
       updateFormState();
     }, 1500);

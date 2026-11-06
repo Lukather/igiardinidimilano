@@ -87,7 +87,16 @@ export function createPopupElement(photo: Photo): HTMLElement {
     element('span', 'photo-popup-coords', formatCoordinates(photo)),
   );
 
-  root.append(header, image, description, meta);
+  root.append(header, image, description);
+
+  // Per-photo credit, only when the metadata carries one. Without it the
+  // footer's site-wide attribution is the only credit, and an empty line here
+  // would suggest a missing name rather than no name.
+  if (photo.author) {
+    root.append(element('p', 'photo-popup-author', `Foto di ${photo.author}`));
+  }
+
+  root.append(meta);
 
   return root;
 }

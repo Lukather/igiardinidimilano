@@ -76,6 +76,30 @@ describe('Photo popup', () => {
     });
   });
 
+  describe('Optional author credit', () => {
+    it('shows the credit when the photo carries an author', () => {
+      const popup = createPopupElement(photo({ author: 'Lorenzo' }));
+
+      expect(popup.querySelector('.photo-popup-author')?.textContent).toBe('Foto di Lorenzo');
+    });
+
+    it('shows no credit line when the photo has no author', () => {
+      const popup = createPopupElement(photo());
+
+      // Not an empty line: that would read as a missing name rather than as
+      // no per-photo credit, which is the normal case.
+      expect(popup.querySelector('.photo-popup-author')).toBeNull();
+    });
+
+    it('renders a hostile author literally', () => {
+      const popup = createPopupElement(photo({ author: '<img src=x onerror=alert(1)>' }));
+      const credit = popup.querySelector('.photo-popup-author');
+
+      expect(credit?.textContent).toBe('Foto di <img src=x onerror=alert(1)>');
+      expect(credit?.querySelector('img')).toBeNull();
+    });
+  });
+
   describe('Metadata containing markup', () => {
     const hostile = '<script>alert("x")</script> & "virgolette" \'apici\'';
 

@@ -191,6 +191,7 @@ async function promptMetadata(
   category: PhotoCategory;
   space: string;
   description: string;
+  author?: string;
 } | null> {
   console.log('\n📋 Enter photo metadata:\n');
 
@@ -222,7 +223,17 @@ async function promptMetadata(
     return null;
   }
 
-  return { date, category, space: space.trim(), description: description.trim() };
+  // Optional: pressing Enter skips it, and the photo carries no per-photo
+  // credit (the footer's site-wide attribution applies).
+  const author = await ask('Author (optional, press Enter to skip): ');
+
+  return {
+    date,
+    category,
+    space: space.trim(),
+    description: description.trim(),
+    author,
+  };
 }
 
 
@@ -350,6 +361,7 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
     description: metadata.description,
     space: metadata.space,
     imageFile: imageFileName,
+    author: metadata.author,
   });
 
   // ============================================================================
@@ -424,6 +436,9 @@ async function ingest(originalPhotoPath: string, config: IngestConfig = DEFAULT_
   console.log(`   Space:       ${photoMetadata.space}`);
   console.log(`   Coordinates: ${photoMetadata.coordinates.latitude.toFixed(6)}, ${photoMetadata.coordinates.longitude.toFixed(6)}`);
   console.log(`   Description: ${photoMetadata.description}`);
+  if (photoMetadata.author) {
+    console.log(`   Author:      ${photoMetadata.author}`);
+  }
   console.log('\n📁 Files created:');
   console.log(`   Photo:    ${path.relative(process.cwd(), outputImagePath)}`);
   console.log(`   Metadata: ${path.relative(process.cwd(), metadataPath)}`);

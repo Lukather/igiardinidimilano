@@ -186,6 +186,29 @@ describe('Admin panel upload', () => {
       expect(body.stats.totalPhotos).toBe(data.photos.length);
     });
 
+    it('stores the optional author when one is given', async () => {
+      const { body } = await upload(await originalJpeg(), {
+        ...VALID_FIELDS,
+        author: 'Lorenzo',
+      });
+
+      const metadata = JSON.parse(
+        fs.readFileSync(path.join(METADATA_DIR, `${body.photoId}.json`), 'utf-8'),
+      );
+
+      expect(metadata.author).toBe('Lorenzo');
+    });
+
+    it('omits the author when the field is left blank', async () => {
+      const { body } = await upload(await originalJpeg(), { ...VALID_FIELDS, author: '   ' });
+
+      const raw = fs.readFileSync(path.join(METADATA_DIR, `${body.photoId}.json`), 'utf-8');
+
+      // Absent, not `"author": ""`: a blank credit is not a credit.
+      expect(JSON.parse(raw).author).toBeUndefined();
+      expect(raw).not.toContain('author');
+    });
+
     it('allocates a new ID instead of overwriting on a repeated upload', async () => {
       const first = await upload(await originalJpeg());
       const second = await upload(await originalJpeg());

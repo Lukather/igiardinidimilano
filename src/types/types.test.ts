@@ -250,6 +250,66 @@ describe('Zod Schemas', () => {
 
       expect(() => validatePhoto(invalidPhoto)).toThrow();
     });
+
+    it('should accept a photo with an optional author', () => {
+      const withAuthor = {
+        id: '2024-01-15-parco-sempione-01',
+        category: 'curato',
+        coordinates: { latitude: 45.4642, longitude: 9.1900 },
+        date: '2024-01-15',
+        description: 'Parco ben curato',
+        space: 'Parco Sempione',
+        imageFile: '2024-01-15-parco-sempione-01.jpg',
+        author: 'Lorenzo',
+      };
+
+      expect(validatePhoto(withAuthor).author).toBe('Lorenzo');
+    });
+
+    it('should trim the author', () => {
+      const withAuthor = {
+        id: '2024-01-15-parco-sempione-01',
+        category: 'curato',
+        coordinates: { latitude: 45.4642, longitude: 9.1900 },
+        date: '2024-01-15',
+        description: 'Parco ben curato',
+        space: 'Parco Sempione',
+        imageFile: '2024-01-15-parco-sempione-01.jpg',
+        author: '  Lorenzo  ',
+      };
+
+      expect(validatePhoto(withAuthor).author).toBe('Lorenzo');
+    });
+
+    it('should throw for a blank author', () => {
+      const blankAuthor = {
+        id: '2024-01-15-parco-sempione-01',
+        category: 'curato',
+        coordinates: { latitude: 45.4642, longitude: 9.1900 },
+        date: '2024-01-15',
+        description: 'Parco ben curato',
+        space: 'Parco Sempione',
+        imageFile: '2024-01-15-parco-sempione-01.jpg',
+        author: '   ',
+      };
+
+      expect(() => validatePhoto(blankAuthor)).toThrow(/author/);
+    });
+
+    it('should throw for an author longer than 100 characters', () => {
+      const longAuthor = {
+        id: '2024-01-15-parco-sempione-01',
+        category: 'curato',
+        coordinates: { latitude: 45.4642, longitude: 9.1900 },
+        date: '2024-01-15',
+        description: 'Parco ben curato',
+        space: 'Parco Sempione',
+        imageFile: '2024-01-15-parco-sempione-01.jpg',
+        author: 'a'.repeat(101),
+      };
+
+      expect(() => validatePhoto(longAuthor)).toThrow(/author/);
+    });
   });
 
   describe('safeValidatePhoto', () => {

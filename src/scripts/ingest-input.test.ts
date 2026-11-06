@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildPhotoMetadata,
+  normalizeAuthor,
   parseCategoryAnswer,
   parseCoordinatesAnswer,
   parseDateAnswer,
@@ -134,6 +135,40 @@ describe('Ingest input', () => {
       expect(() => buildPhotoMetadata(metadata({ imageFile: 'foto.gif' }))).toThrow(/imageFile/);
     });
 
+    it('accepts a photo without an author', () => {
+      const result = buildPhotoMetadata(metadata());
+
+      expect(result.author).toBeUndefined();
+      // What matters is the file on disk: JSON.stringify drops undefined keys,
+      // so the metadata never carries a nameless `author` field.
+      expect(JSON.stringify(result)).not.toContain('author');
+    });
+
+    it('keeps the author when one is given', () => {
+      const result = buildPhotoMetadata(metadata({ author: 'Lorenzo' }));
+
+      expect(result.author).toBe('Lorenzo');
+    });
+
+    it('treats a blank author as no credit at all', () => {
+      for (const blank of ['', '   ', '\t\n']) {
+        const result = buildPhotoMetadata(metadata({ author: blank }));
+
+        // Not `"author": ""`: an empty credit is not a credit, and the popup
+        // would otherwise render "Foto di " with nothing after it.
+        expect(result.author).toBeUndefined();
+        expect(JSON.stringify(result)).not.toContain('author');
+      }
+    });
+
+    it('trims a padded author', () => {
+      expect(buildPhotoMetadata(metadata({ author: '  Lorenzo  ' })).author).toBe('Lorenzo');
+    });
+
+    it('rejects an author longer than 100 characters, naming the field', () => {
+      expect(() => buildPhotoMetadata(metadata({ author: 'a'.repeat(101) }))).toThrow(/author/);
+    });
+
     it('reports every invalid field at once', () => {
       const invalid = {
         ...metadata(),
@@ -150,6 +185,18 @@ describe('Ingest input', () => {
 
       expect(message).toMatch(/category/);
       expect(message).toMatch(/description/);
+    });
+  });
+
+  describe('Optional author', () => {
+    it('normalises an empty answer to no credit', () => {
+      expect(normalizeAuthor('')).toBeUndefined();
+      expect(normalizeAuthor('   ')).toBeUndefined();
+      expect(normalizeAuthor(undefined)).toBeUndefined();
+    });
+
+    it('trims a real answer', () => {
+      expect(normalizeAuthor('  @lorenzo ')).toBe('@lorenzo');
     });
   });
 
