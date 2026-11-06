@@ -320,11 +320,14 @@ submission. Casi tipici:
 
 | Situazione | Cosa fare |
 |---|---|
+| **La data dice oggi ma la foto non è di oggi** | è il caso più frequente: il form pre-compila la data con oggi e chi carica la lascia così. Accetta la data proposta dall'EXIF durante l'ingest |
 | Coordinate fuori da Milano o palesemente sbagliate | correggile nell'ingest, o rilancia il pin su una mappa |
 | Descrizione troppo corta o inutilizzabile | riscrivila tu: il tono resta documentario e neutro |
 | Nome dello spazio inventato o ambiguo | usa il nome reale del luogo |
 | Foto che non mostra nessuno spazio verde | rifiuta |
 | Foto troppo piccola o illeggibile | rifiuta |
+
+Se il pin del caricatore e il GPS dell'EXIF differiscono di poco, vale il pin: è la dichiarazione esplicita di chi ha scattato. Se divergono di centinaia di metri, guarda la foto prima di decidere.
 
 ### Deploy del form
 
