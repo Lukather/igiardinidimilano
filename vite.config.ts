@@ -65,6 +65,10 @@ function siteDataCheckPlugin(): Plugin {
 export default defineConfig({
   root: 'src',
   publicDir: '../public',
+  // Relative asset URLs, so `dist/` works both at the root of a host and under
+  // a sub-path (GitHub Pages project sites serve at /<repo>/). Absolute `/assets/…`
+  // URLs 404 there. The runtime data fetches in main.ts are already relative.
+  base: './',
   build: {
     outDir: '../dist',
     emptyOutDir: true,

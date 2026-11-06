@@ -197,7 +197,11 @@ describe('Publishing the site', () => {
 
     it('references no file that is missing from the output', () => {
       const landing = readLanding();
-      const referenced = [...landing.matchAll(/(?:src|href)="(\/[^"]+)"/g)].map((m) => m[1]);
+      // The build emits relative URLs (`./assets/…`) so the site also works
+      // under a sub-path; resolve them against the output root either way.
+      const referenced = [...landing.matchAll(/(?:src|href)="(\.?\/[^"]+)"/g)].map((m) =>
+        m[1].replace(/^\.\//, ''),
+      );
 
       expect(referenced.length).toBeGreaterThan(0);
 
