@@ -50,12 +50,20 @@ jobs:
         env:
           VITE_TURNSTILE_SITEKEY: ${{ vars.TURNSTILE_SITEKEY }}
 
-      # Assert on the artefact, not on the configuration: whatever route the
-      # test key could take into the build, this catches it.
-      - name: Refuse to ship the Turnstile test key
+      # Assert on the artefact, and assert *positively*: the test key is a
+      # constant in the bundle as the fallback, so grepping for its absence
+      # fails even when the real key is configured. What must be true is that
+      # the configured key is the one that got baked in.
+      - name: Assert the real Turnstile sitekey reached the bundle
+        env:
+          SITEKEY: ${{ vars.TURNSTILE_SITEKEY }}
         run: |
-          if grep -rq '1x00000000000000000000AA' form/dist; then
-            echo "::error::Il form è stato costruito con la chiave Turnstile di test: nessuna verifica anti-bot. Configura la variabile TURNSTILE_SITEKEY."
+          if [ -z "$SITEKEY" ]; then
+            echo "::error::TURNSTILE_SITEKEY non configurata: il form userebbe la chiave di test, che non verifica nulla."
+            exit 1
+          fi
+          if ! grep -rqF "$SITEKEY" form/dist; then
+            echo "::error::La sitekey configurata non è finita nel bundle: il form userebbe la chiave di test."
             exit 1
           fi
 
