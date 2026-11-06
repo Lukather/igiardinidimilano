@@ -9,13 +9,12 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
+import { resolveSitekey } from './src/sitekey';
 
 const MILAN_CENTER: L.LatLngTuple = [45.4642, 9.19];
 const MILAN_ZOOM = 12;
 
-/** Cloudflare's always-passes test key. The deploy workflow refuses to ship it. */
-const TEST_SITEKEY = '1x00000000000000000000AA';
-const SITEKEY = import.meta.env.VITE_TURNSTILE_SITEKEY ?? TEST_SITEKEY;
+const SITEKEY = resolveSitekey(import.meta.env.VITE_TURNSTILE_SITEKEY);
 
 interface TurnstileApi {
   render(element: HTMLElement, options: { sitekey: string; theme?: string }): string;

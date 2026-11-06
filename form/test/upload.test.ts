@@ -13,6 +13,7 @@ import sharp from 'sharp';
 import { handleUpload, MAX_UPLOAD_BYTES, type Deps, type Env } from '../src/upload-handler';
 import { photoSchema } from '../../src/types/schemas';
 import { MILAN_BOUNDS, LIMITS } from '../src/submission';
+import { resolveSitekey, TEST_SITEKEY } from '../src/sitekey';
 
 const ENDPOINT = 'https://form.test/api/upload';
 
@@ -338,5 +339,20 @@ describe('The form and the published schema stay in agreement', () => {
 
     expect(photoSchema.safeParse({ ...validPhoto, author: 'a'.repeat(LIMITS.authorMax) }).success).toBe(true);
     expect(photoSchema.safeParse({ ...validPhoto, author: 'a'.repeat(LIMITS.authorMax + 1) }).success).toBe(false);
+  });
+});
+
+describe('The Turnstile site key baked into the bundle', () => {
+  it('falls back to the test key when the variable is missing or empty', () => {
+    // An empty value is the case that bit us: `??` would have kept "" and the
+    // form would have shipped with no widget at all.
+    expect(resolveSitekey(undefined)).toBe(TEST_SITEKEY);
+    expect(resolveSitekey('')).toBe(TEST_SITEKEY);
+    expect(resolveSitekey('   ')).toBe(TEST_SITEKEY);
+  });
+
+  it('uses a real key when one is configured', () => {
+    expect(resolveSitekey('0x4AAAAAAA')).toBe('0x4AAAAAAA');
+    expect(resolveSitekey('  0x4AAAAAAA  ')).toBe('0x4AAAAAAA');
   });
 });
