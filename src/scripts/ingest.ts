@@ -52,18 +52,11 @@ const DEFAULT_CONFIG: IngestConfig = {
 /**
  * Decimal degrees from an ExifReader GPS tag.
  *
- * ExifReader does not hand back `[degrees, minutes, seconds]` as plain
- * numbers. Each component is a rational pair:
+ * With expanded output, ExifReader provides GPS coordinates as decimal numbers
+ * with sign (negative for South and West), so no manual rational parsing is needed.
+ * Falls back to description field for older API versions.
  *
- *   GPSLatitude.value = [[45, 1], [29, 1], [48917760, 1000000]]
- *
- * Adding those together does not produce a number: `[45,1] + NaN + NaN`
- * concatenates into the string "[45,1]NaNNaN", and the caller's `toFixed`
- * then throws. The `description` field already carries the decimal value, so
- * it is preferred; the rational form is the fallback for tags without one.
- *
- * Returns null when the tag is missing or cannot be read as a number, so the
- * caller reports "no GPS" instead of publishing a coordinate that is NaN.
+ * Returns null when the tag is missing or cannot be read as a number.
  */
 export function toDecimalDegrees(
   tag: { value?: unknown; description?: unknown } | undefined,
@@ -72,56 +65,42 @@ export function toDecimalDegrees(
     return null;
   }
 
+  // With expanded: true, the value is already a decimal number with sign
+  if (typeof tag.value === 'number' && Number.isFinite(tag.value)) {
+    return tag.value;
+  }
+
+  // Fallback for non-expanded output: use description if it's a number
   if (typeof tag.description === 'number' && Number.isFinite(tag.description)) {
     return tag.description;
   }
 
-  const value = tag.value;
-  if (!Array.isArray(value) || value.length < 3) {
-    return null;
-  }
-
-  const components = value.slice(0, 3).map((component) => {
-    if (Array.isArray(component)) {
-      const [numerator, denominator] = component as number[];
-      return typeof numerator === 'number' && typeof denominator === 'number' && denominator !== 0
-        ? numerator / denominator
-        : NaN;
-    }
-
-    return typeof component === 'number' ? component : NaN;
-  });
-
-  if (components.some((component) => !Number.isFinite(component))) {
-    return null;
-  }
-
-  return components[0] + components[1] / 60 + components[2] / 3600;
+  return null;
 }
 
 /**
  * Extract GPS coordinates from photo EXIF data
+ *
+ * Uses ExifReader's expanded output which provides GPS coordinates as decimal
+ * numbers with sign (negative for South and West), eliminating the need to
+ * manually parse rational numbers and direction references.
  */
 export async function extractGPSFromExif(filePath: string): Promise<ExtractedGPS> {
   try {
     const buffer = fs.readFileSync(filePath);
-    const tags = ExifReader.load(buffer);
+    // Use expanded output to get GPS as decimal numbers with sign
+    const tags = ExifReader.load(buffer, { expanded: true });
 
-    const latDecimal = toDecimalDegrees(tags.GPSLatitude);
-    const lonDecimal = toDecimalDegrees(tags.GPSLongitude);
+    // With expanded output, GPS coordinates are in tags.gps.Latitude/Longitude
+    // as decimal numbers with sign (negative for South and West)
+    const latitude = tags.gps?.Latitude as number | undefined;
+    const longitude = tags.gps?.Longitude as number | undefined;
 
-    if (latDecimal === null || lonDecimal === null) {
+    if (latitude === undefined || longitude === undefined) {
       return { error: 'No GPS data found in photo EXIF' };
     }
 
-    // The direction refs are arrays of strings, e.g. ["N"] and ["E"].
-    const latDirection = firstTagValue(tags.GPSLatitudeRef?.value) ?? 'N';
-    const lonDirection = firstTagValue(tags.GPSLongitudeRef?.value) ?? 'E';
-
-    return {
-      latitude: latDirection === 'S' ? -latDecimal : latDecimal,
-      longitude: lonDirection === 'W' ? -lonDecimal : lonDecimal,
-    };
+    return { latitude, longitude };
   } catch (error) {
     return {
       error: error instanceof Error ? error.message : 'Failed to extract GPS from EXIF',
@@ -129,41 +108,33 @@ export async function extractGPSFromExif(filePath: string): Promise<ExtractedGPS
   }
 }
 
-/**
- * Read the first value of an EXIF tag.
- *
- * ExifReader returns tag values as arrays of strings, not as plain strings.
- */
-function firstTagValue(value: unknown): string | null {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (Array.isArray(value) && typeof value[0] === 'string') {
-    return value[0];
-  }
-  return null;
-}
 
 /**
  * Extract the date a photo was taken from its EXIF data.
  *
  * `DateTimeOriginal` is when the shutter fired; `DateTime` can be rewritten
  * by editing software, so it is only a fallback.
+ *
+ * With expanded output, DateTimeOriginal.description is a simple string.
  */
 export function extractDateFromExif(filePath: string): string | null {
   try {
     const buffer = fs.readFileSync(filePath);
-    const tags = ExifReader.load(buffer);
+    // Use expanded output to get DateTimeOriginal as a simple string
+    const tags = ExifReader.load(buffer, { expanded: true });
 
-    const raw =
-      firstTagValue(tags.DateTimeOriginal?.value) ?? firstTagValue(tags.DateTime?.value);
+    // With expanded output, DateTimeOriginal.description is a simple string
+    // Format: "YYYY:MM:DD HH:MM:SS"
+    const dateTime =
+      tags.exif?.DateTimeOriginal?.description as string | undefined ?:
+      tags.exif?.DateTime?.description as string | undefined;
 
-    if (!raw) {
+    if (!dateTime) {
       return null;
     }
 
     // EXIF format is YYYY:MM:DD HH:MM:SS; the site uses YYYY-MM-DD.
-    const [date] = raw.split(' ');
+    const [date] = dateTime.split(' ');
     const normalized = date.replace(/:/g, '-');
 
     return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? normalized : null;
