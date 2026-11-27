@@ -50,35 +50,6 @@ const DEFAULT_CONFIG: IngestConfig = {
 };
 
 /**
- * Decimal degrees from an ExifReader GPS tag.
- *
- * With expanded output, ExifReader provides GPS coordinates as decimal numbers
- * with sign (negative for South and West), so no manual rational parsing is needed.
- * Falls back to description field for older API versions.
- *
- * Returns null when the tag is missing or cannot be read as a number.
- */
-export function toDecimalDegrees(
-  tag: { value?: unknown; description?: unknown } | undefined,
-): number | null {
-  if (!tag) {
-    return null;
-  }
-
-  // With expanded: true, the value is already a decimal number with sign
-  if (typeof tag.value === 'number' && Number.isFinite(tag.value)) {
-    return tag.value;
-  }
-
-  // Fallback for non-expanded output: use description if it's a number
-  if (typeof tag.description === 'number' && Number.isFinite(tag.description)) {
-    return tag.description;
-  }
-
-  return null;
-}
-
-/**
  * Extract GPS coordinates from photo EXIF data
  *
  * Uses ExifReader's expanded output which provides GPS coordinates as decimal
@@ -126,8 +97,7 @@ export function extractDateFromExif(filePath: string): string | null {
     // With expanded output, DateTimeOriginal.description is a simple string
     // Format: "YYYY:MM:DD HH:MM:SS"
     const dateTime =
-      tags.exif?.DateTimeOriginal?.description as string | undefined ?:
-      tags.exif?.DateTime?.description as string | undefined;
+      tags.exif?.DateTimeOriginal?.description ?? tags.exif?.DateTime?.description;
 
     if (!dateTime) {
       return null;
